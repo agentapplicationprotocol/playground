@@ -5,11 +5,13 @@ body {
   background: #0f0f0f;
   color: #e8e8e8;
   height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
-#root { flex: 1; display: flex; flex-direction: column; }
+#root { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 
 /* ── Connect screen ── */
 .connect-screen {
@@ -75,6 +77,8 @@ button:not(:disabled):hover { background: #1d4ed8; }
   width: 100%;
   margin: 0 auto;
   padding: 0 1rem;
+  min-height: 0;
+  overflow: hidden;
 }
 
 header {
