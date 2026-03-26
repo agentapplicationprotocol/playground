@@ -21,6 +21,7 @@ interface ChatMessage {
 
 interface PermissionRequest {
   toolName: string;
+  toolType: "client" | "server";
   input: Record<string, unknown>;
   resolve: (granted: boolean) => void;
 }
@@ -83,9 +84,9 @@ export default function App() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  function askPermission(toolName: string, input: Record<string, unknown>): Promise<boolean> {
+  function askPermission(toolName: string, toolType: "client" | "server", input: Record<string, unknown>): Promise<boolean> {
     return new Promise((resolve) => {
-      setPermRequests((prev) => [...prev, { toolName, input, resolve }]);
+      setPermRequests((prev) => [...prev, { toolName, toolType, input, resolve }]);
     });
   }
 
@@ -153,8 +154,7 @@ export default function App() {
     setBusy(true);
     const toolMessages: Message[] = [];
     await Promise.all(untrustedUnhandled.map(async (block) => {
-      const granted = await askPermission(block.name, block.input);
-      toolMessages.push({ role: "tool_permission", toolCallId: block.toolCallId, granted });
+      const granted = await askPermission(block.name, "server", block.input);
       // Attach result to last assistant message
       setMessages((prev) => {
         const next = [...prev];
@@ -191,10 +191,16 @@ export default function App() {
           const serverTool = serverTools.find((t) => t.name === block.name);
           let resultText: string;
           if (clientTool) {
-            resultText = runTool(clientTool, block.input);
-            nextToolMessages.push({ role: "tool", toolCallId: block.toolCallId, content: resultText });
+            if (clientTool.trust) {
+              resultText = runTool(clientTool, block.input);
+              nextToolMessages.push({ role: "tool", toolCallId: block.toolCallId, content: resultText });
+            } else {
+              const granted = await askPermission(block.name, "client", block.input);
+              resultText = granted ? runTool(clientTool, block.input) : "denied";
+              nextToolMessages.push({ role: "tool", toolCallId: block.toolCallId, content: resultText });
+            }
           } else if (serverTool) {
-            const granted = await askPermission(block.name, block.input);
+            const granted = await askPermission(block.name, "server", block.input);
             resultText = granted ? "granted" : "denied";
             nextToolMessages.push({ role: "tool_permission", toolCallId: block.toolCallId, granted });
           } else {
@@ -368,10 +374,16 @@ export default function App() {
           let resultText: string;
           let granted: boolean | undefined;
           if (clientTool) {
-            resultText = runTool(clientTool, block.input);
-            toolMessages.push({ role: "tool", toolCallId: block.toolCallId, content: resultText });
+            if (clientTool.trust) {
+              resultText = runTool(clientTool, block.input);
+              toolMessages.push({ role: "tool", toolCallId: block.toolCallId, content: resultText });
+            } else {
+              granted = await askPermission(block.name, "client", block.input);
+              resultText = granted ? runTool(clientTool, block.input) : "denied";
+              toolMessages.push({ role: "tool", toolCallId: block.toolCallId, content: resultText });
+            }
           } else if (serverTool) {
-            granted = await askPermission(block.name, block.input);
+            granted = await askPermission(block.name, "server", block.input);
             resultText = granted ? "granted" : "denied";
             toolMessages.push({ role: "tool_permission", toolCallId: block.toolCallId, granted });
           } else {
@@ -505,10 +517,10 @@ export default function App() {
 
       {permRequests.length > 0 && (
         <div className="perm-prompt">
-          <p>The agent wants to run server tool{permRequests.length > 1 ? "s" : ""}:</p>
+          <p>The agent wants to run tool{permRequests.length > 1 ? "s" : ""}:</p>
           {permRequests.map((req, i) => (
             <div key={i} className="perm-item">
-              <strong>{req.toolName}</strong>
+              <strong>{req.toolName}</strong><span className="perm-type"> ({req.toolType} tool)</span>
               <pre>{JSON.stringify(req.input, null, 2)}</pre>
               <div className="perm-actions">
                 <button onClick={() => answerPermission(req, true)}>Allow</button>

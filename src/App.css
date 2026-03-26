@@ -320,6 +320,7 @@ button.sessions-close:hover { color: #ccc; background: none; }
 
 .perm-prompt p { margin-bottom: 0.5rem; }
 .perm-prompt strong { color: #fbbf24; }
+.perm-type { color: #888; font-size: 0.82rem; }
 .perm-prompt pre { background: #111; border-radius: 4px; padding: 0.5rem; font-size: 0.8rem; color: #aaa; overflow-x: auto; margin-bottom: 0.75rem; }
 .perm-actions { display: flex; gap: 0.5rem; }
 

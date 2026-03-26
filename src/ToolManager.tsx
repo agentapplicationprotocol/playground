@@ -4,6 +4,7 @@ import type { ToolSpec, ServerToolRef } from "@agentapplicationprotocol/sdk";
 export interface ClientTool {
   spec: ToolSpec;
   code: string; // JS function body, receives `input` object, returns string
+  trust: boolean;
 }
 
 export interface ServerToolState {
@@ -33,6 +34,7 @@ const EMPTY: ClientTool = {
     }
   },
   code: "return String(eval(input.expression));",
+  trust: false,
 };
 
 export function toServerToolRefs(tools: ServerToolState[]): ServerToolRef[] {
@@ -47,6 +49,11 @@ export default function ToolManager({ clientTools, onClientToolsChange, serverTo
   function openNew() { setEditing(structuredClone(EMPTY)); setEditIndex(null); setSchemaError(""); }
   function openEdit(i: number) { setEditing(structuredClone(clientTools[i])); setEditIndex(i); setSchemaError(""); }
   function removeClient(i: number) { onClientToolsChange(clientTools.filter((_, j) => j !== i)); }
+  function toggleClientTrust(i: number) {
+    const next = [...clientTools];
+    next[i] = { ...next[i], trust: !next[i].trust };
+    onClientToolsChange(next);
+  }
 
   function save() {
     if (!editing) return;
@@ -124,7 +131,12 @@ export default function ToolManager({ clientTools, onClientToolsChange, serverTo
           {clientToolsSupported ? (
             <>
               {clientTools.map((t, i) => (
-                <span key={i} className="tool-chip" onClick={() => openEdit(i)}>{t.spec.name}</span>
+                <span key={i} className="tool-chip server-tool">
+                  <span onClick={() => openEdit(i)}>{t.spec.name}</span>
+                  <span className={`trust-badge ${t.trust ? "trusted" : ""}`} onClick={() => toggleClientTrust(i)} title="Toggle trust">
+                    {t.trust ? "trusted" : "untrusted"}
+                  </span>
+                </span>
               ))}
               <button className="tool-add" onClick={openNew}>+ Add Tool</button>
             </>
