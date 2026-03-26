@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Client, type AgentInfo, type AgentOption, type SSEEvent, type AgentResponse, type Message } from "@agentapplicationprotocol/sdk";
+import { Client, type AgentInfo, type AgentOption, type AgentConfig, type SSEEvent, type AgentResponse, type Message, type ToolPermissionMessage } from "@agentapplicationprotocol/sdk";
 import ToolManager, { type ClientTool, type ServerToolState, toServerToolRefs } from "./ToolManager";
 import SessionsPanel from "./SessionsPanel";
 import "./App.css";
@@ -59,7 +59,7 @@ export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sessionId, setSessionId] = useState<string | undefined>();
-  const [stream, setStream] = useState<"none" | "chunk" | "message">("chunk");
+  const [stream, setStream] = useState<"none" | "delta" | "message">("delta");
   const selectedAgentInfo = agents.find((a) => a.name === selectedAgent);
   const streamCaps = selectedAgentInfo?.capabilities?.stream;
   const [tools, setTools] = useState<ClientTool[]>([]);
@@ -100,13 +100,13 @@ export default function App() {
     const session = await clientRef.current.getSession(id);
     const history = session.history?.full ?? session.history?.compacted ?? [];
 
-    // Restore options, server tools
-    if (Object.keys(session.options).length) {
-      setOptions(session.options);
-      lastSentOptionsRef.current = { ...session.options };
+    // Restore options, server tools from AgentConfig
+    if (session.agent.options && Object.keys(session.agent.options).length) {
+      setOptions(session.agent.options);
+      lastSentOptionsRef.current = { ...session.agent.options };
     }
-    if (session.serverTools.length) {
-      setServerTools(session.serverTools.map((ref) => ({
+    if (session.agent.tools && session.agent.tools.length) {
+      setServerTools(session.agent.tools.map((ref) => ({
         name: ref.name,
         enabled: true,
         trust: ref.trust,
@@ -131,9 +131,8 @@ export default function App() {
     // Find unhandled tool_use blocks (no matching tool/tool_permission response)
     const handledIds = new Set(
       history
-        .filter((m): m is { role: "tool" | "tool_permission"; toolCallId: string } & Message =>
-          m.role === "tool" || m.role === "tool_permission")
-        .map((m) => m.toolCallId)
+        .filter((m) => m.role === "tool" || (m as { role: string }).role === "tool_permission")
+        .map((m) => (m as { toolCallId: string }).toolCallId)
     );
 
     const unhandled = history
@@ -153,7 +152,7 @@ export default function App() {
     if (untrustedUnhandled.length === 0) return;
 
     setBusy(true);
-    const toolMessages: Message[] = [];
+    const toolMessages: (Message | ToolPermissionMessage)[] = [];
     await Promise.all(untrustedUnhandled.map(async (block) => {
       const clientTool = tools.find((t) => t.spec.name === block.name);
       const isClient = !!clientTool;
@@ -186,7 +185,9 @@ export default function App() {
     try {
       setMessages((prev) => [...prev, { role: "assistant", content: "", streaming: true }]);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let result = await clientRef.current!.sendTurn(id, { messages: toolMessages, stream } as any);
+      let result: AgentResponse | AsyncIterable<SSEEvent> = stream === "none"
+        ? await clientRef.current!.sendTurn(id, { messages: toolMessages, stream: "none" })
+        : await clientRef.current!.sendTurn(id, { messages: toolMessages, stream });
       let { stopReason, allMessages, sid: newSid } = await handleResponse(result);
       const resolvedSid = newSid ?? id;
       if (newSid) setSessionId(newSid);
@@ -196,7 +197,7 @@ export default function App() {
           .flatMap((m) => Array.isArray((m as { content?: unknown }).content) ? (m as { content: unknown[] }).content : [])
           .filter((b): b is { type: "tool_use"; toolCallId: string; name: string; input: Record<string, unknown> } => (b as { type: string }).type === "tool_use");
 
-        const nextToolMessages: Message[] = [];
+        const nextToolMessages: (Message | ToolPermissionMessage)[] = [];
         for (const block of toolUseBlocks) {
           const clientTool = tools.find((t) => t.spec.name === block.name);
           const serverTool = serverTools.find((t) => t.name === block.name);
@@ -228,7 +229,9 @@ export default function App() {
         updateLast((m) => ({ ...m, streaming: false }));
         setMessages((prev) => [...prev, { role: "assistant", content: "", streaming: true }]);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        result = await clientRef.current!.sendTurn(resolvedSid, { messages: nextToolMessages, stream } as any);
+        result = stream === "none"
+          ? await clientRef.current!.sendTurn(resolvedSid, { messages: nextToolMessages, stream: "none" })
+          : await clientRef.current!.sendTurn(resolvedSid, { messages: nextToolMessages, stream });
         ({ stopReason, allMessages } = await handleResponse(result));
       }
     } catch (e) {
@@ -250,9 +253,9 @@ export default function App() {
       setSelectedAgent(firstAgent?.name ?? "");
       setServerTools((firstAgent?.tools ?? []).map((t) => ({ name: t.name, enabled: true, trust: false })));
       const caps = firstAgent?.capabilities?.stream;
-      if (caps?.chunk) setStream("chunk");
+      if (caps?.delta) setStream("delta");
       else if (caps?.message) setStream("message");
-      else setStream("none");
+      else if (caps?.none) setStream("none");
       initOptions(firstAgent?.options ?? []);
       setConnected(true);
     } catch (e) {
@@ -299,7 +302,7 @@ export default function App() {
             return { ...m, toolCalls: [...(m.toolCalls ?? []), { toolCallId: event.toolCallId, name: event.name, input: event.input }] };
           });
         }
-        else if (event.event === "message_stop") stopReason = event.stopReason;
+        else if (event.event === "turn_stop") stopReason = event.stopReason;
       }
     } else {
       const response = result as AgentResponse;
@@ -345,27 +348,42 @@ export default function App() {
       const last = lastSentOptionsRef.current;
       let optionsToSend: Record<string, string> | undefined;
       if (!sessionId) {
-        // createSession: always send all options
         optionsToSend = Object.keys(options).length ? options : undefined;
       } else {
-        // sendTurn: only send if something changed
         const changed = Object.fromEntries(Object.entries(options).filter(([k, v]) => last?.[k] !== v));
         optionsToSend = Object.keys(changed).length ? changed : undefined;
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const req: any = {
-        agent: selectedAgent,
-        messages: [{ role: "user", content: userText }],
-        stream,
-        ...(toolSpecs.length ? { tools: toolSpecs } : {}),
-        ...(serverToolRefs.length ? { serverTools: serverToolRefs } : {}),
-        ...(optionsToSend ? { options: optionsToSend } : {}),
+      const agentConfig: AgentConfig = {
+        name: selectedAgent,
+        ...(serverToolRefs.length ? { tools: serverToolRefs } : {}),
+        ...(optionsToSend && !sessionId ? { options: optionsToSend } : {}),
       };
 
-      let result = sessionId
-        ? await clientRef.current.sendTurn(sessionId, req)
-        : await clientRef.current.createSession(req);
+      const agentUpdate = sessionId && (serverToolRefs.length || optionsToSend)
+        ? {
+            ...(serverToolRefs.length ? { tools: serverToolRefs } : {}),
+            ...(optionsToSend ? { options: optionsToSend } : {}),
+          }
+        : undefined;
+
+      const baseReq = {
+        messages: [{ role: "user" as const, content: userText }],
+        ...(toolSpecs.length ? { tools: toolSpecs } : {}),
+      };
+
+      let result: AgentResponse | AsyncIterable<SSEEvent>;
+      if (sessionId) {
+        const turnReq = { ...baseReq, ...(agentUpdate ? { agent: agentUpdate } : {}) };
+        result = stream === "none"
+          ? await clientRef.current.sendTurn(sessionId, { ...turnReq, stream: "none" as const })
+          : await clientRef.current.sendTurn(sessionId, { ...turnReq, stream });
+      } else {
+        const sessionReq = { ...baseReq, agent: agentConfig };
+        result = stream === "none"
+          ? await clientRef.current.createSession({ ...sessionReq, stream: "none" as const })
+          : await clientRef.current.createSession({ ...sessionReq, stream });
+      }
 
       lastSentOptionsRef.current = { ...options };
 
@@ -378,7 +396,7 @@ export default function App() {
           .flatMap((m) => Array.isArray((m as { content?: unknown }).content) ? (m as { content: unknown[] }).content : [])
           .filter((b): b is { type: "tool_use"; toolCallId: string; name: string; input: Record<string, unknown> } => (b as { type: string }).type === "tool_use");
 
-        const toolMessages: Message[] = [];
+        const toolMessages: (Message | ToolPermissionMessage)[] = [];
         for (const block of toolUseBlocks) {
           const clientTool = tools.find((t) => t.spec.name === block.name);
           const serverTool = serverTools.find((t) => t.name === block.name);
@@ -396,12 +414,11 @@ export default function App() {
           } else if (serverTool) {
             granted = await askPermission(block.name, "server", block.input);
             resultText = granted ? "granted" : "denied";
-            toolMessages.push({ role: "tool_permission", toolCallId: block.toolCallId, granted });
+            toolMessages.push({ role: "tool_permission", toolCallId: block.toolCallId, granted: granted! });
           } else {
             resultText = `Unknown tool: ${block.name}`;
             toolMessages.push({ role: "tool", toolCallId: block.toolCallId, content: resultText });
           }
-          // Attach result to the rendered tool call
           updateLast((m) => ({
             ...m,
             toolCalls: (m.toolCalls ?? []).map((tc) =>
@@ -412,8 +429,9 @@ export default function App() {
 
         updateLast((m) => ({ ...m, streaming: false }));
         setMessages((prev) => [...prev, { role: "assistant", content: "", streaming: true }]);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        result = await clientRef.current.sendTurn(resolvedSid!, { messages: toolMessages, stream } as any);
+        result = stream === "none"
+          ? await clientRef.current.sendTurn(resolvedSid!, { messages: toolMessages, stream: "none" })
+          : await clientRef.current.sendTurn(resolvedSid!, { messages: toolMessages, stream });
         ({ stopReason, allMessages, sid } = await handleResponse(result));
         if (sid) setSessionId(sid);
       }
@@ -449,9 +467,9 @@ export default function App() {
         <span className="title">AAP Playground</span>
         <div className="header-right">
           <label className="stream-toggle">Stream:
-            <select value={stream} onChange={(e) => setStream(e.target.value as "none" | "chunk" | "message")}>
+            <select value={stream} onChange={(e) => setStream(e.target.value as "none" | "delta" | "message")}>
               <option value="none" disabled={streamCaps ? !streamCaps.none : false}>none</option>
-              <option value="chunk" disabled={!streamCaps?.chunk}>chunk</option>
+              <option value="delta" disabled={!streamCaps?.delta}>delta</option>
               <option value="message" disabled={!streamCaps?.message}>message</option>
             </select>
           </label>
@@ -463,9 +481,9 @@ export default function App() {
             const agent = agents.find((a) => a.name === name);
             setServerTools((agent?.tools ?? []).map((t) => ({ name: t.name, enabled: true, trust: false })));
             const caps = agent?.capabilities?.stream;
-            if (caps?.chunk) setStream("chunk");
+            if (caps?.delta) setStream("delta");
             else if (caps?.message) setStream("message");
-            else setStream("none");
+            else if (caps?.none) setStream("none");
             initOptions(agent?.options ?? []);
           }}>
             {agents.map((a) => <option key={a.name} value={a.name}>{a.title ?? a.name}</option>)}
@@ -487,18 +505,20 @@ export default function App() {
       <ToolManager
         clientTools={tools} onClientToolsChange={setTools}
         serverTools={serverTools} onServerToolsChange={setServerTools}
-        clientToolsSupported={selectedAgentInfo?.capabilities?.application?.tools === true}
+        clientToolsSupported={selectedAgentInfo?.capabilities?.application?.tools !== undefined}
       />
 
-      {selectedAgentInfo && selectedAgentInfo.options.length > 0 && (
+      {selectedAgentInfo && (selectedAgentInfo.options ?? []).length > 0 && (
         <div className="options-bar">
-          {selectedAgentInfo.options.map((opt) => (
+          {(selectedAgentInfo.options ?? []).map((opt) => (
             <label key={opt.name} className="option-field" title={opt.description}>
               <span>{opt.title ?? opt.name}</span>
               {opt.type === "select" ? (
                 <select value={options[opt.name] ?? opt.default} onChange={(e) => setOptions((prev) => ({ ...prev, [opt.name]: e.target.value }))}>
                   {opt.options.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
+              ) : opt.type === "secret" ? (
+                <input type="password" value={options[opt.name] ?? opt.default} onChange={(e) => setOptions((prev) => ({ ...prev, [opt.name]: e.target.value }))} />
               ) : (
                 <input value={options[opt.name] ?? opt.default} onChange={(e) => setOptions((prev) => ({ ...prev, [opt.name]: e.target.value }))} />
               )}

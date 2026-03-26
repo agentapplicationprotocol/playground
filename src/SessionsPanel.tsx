@@ -56,9 +56,9 @@ export default function SessionsPanel({ client, currentSessionId, onLoad, onClos
         </ul>
         {detail && (
           <div className="session-detail">
-            <div className="session-detail-row"><span>Agent</span><span>{detail.agent}</span></div>
-            {Object.keys(detail.options).length > 0 && (
-              <div className="session-detail-row"><span>Options</span><span>{JSON.stringify(detail.options)}</span></div>
+            <div className="session-detail-row"><span>Agent</span><span>{detail.agent.name}</span></div>
+            {detail.agent.options && Object.keys(detail.agent.options).length > 0 && (
+              <div className="session-detail-row"><span>Options</span><span>{JSON.stringify(detail.agent.options)}</span></div>
             )}
             {detail.history?.full && <div className="session-detail-row"><span>Messages</span><span>{detail.history.full.length}</span></div>}
             <button onClick={() => { onLoad(detail.sessionId); onClose(); }}>
