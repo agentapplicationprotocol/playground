@@ -64,7 +64,7 @@ export default function App() {
   const [tools, setTools] = useState<ClientTool[]>([]);
   const [serverTools, setServerTools] = useState<ServerToolState[]>([]);
   const [busy, setBusy] = useState(false);
-  const [permRequest, setPermRequest] = useState<PermissionRequest | null>(null);
+  const [permRequests, setPermRequests] = useState<PermissionRequest[]>([]);
   const [showSessions, setShowSessions] = useState(false);
 
   const [options, setOptions] = useState<Record<string, string>>({});
@@ -85,13 +85,127 @@ export default function App() {
 
   function askPermission(toolName: string, input: Record<string, unknown>): Promise<boolean> {
     return new Promise((resolve) => {
-      setPermRequest({ toolName, input, resolve });
+      setPermRequests((prev) => [...prev, { toolName, input, resolve }]);
     });
   }
 
-  function answerPermission(granted: boolean) {
-    permRequest?.resolve(granted);
-    setPermRequest(null);
+  function answerPermission(req: PermissionRequest, granted: boolean) {
+    req.resolve(granted);
+    setPermRequests((prev) => prev.filter((r) => r !== req));
+  }
+
+  async function loadSession(id: string) {
+    if (!clientRef.current) return;
+    const session = await clientRef.current.getSession(id);
+    const history = session.history?.full ?? session.history?.compacted ?? [];
+
+    // Reconstruct chat messages from history
+    const chatMessages: ChatMessage[] = [];
+    for (const m of history) {
+      if (m.role === "user") {
+        const content = typeof m.content === "string" ? m.content : m.content.filter((b) => b.type === "text").map((b) => (b as { type: "text"; text: string }).text).join("\n");
+        chatMessages.push({ role: "user", content });
+      } else if (m.role === "assistant") {
+        const { text, thinking } = extractContent([m]);
+        const toolCalls: ToolCallRecord[] = (Array.isArray(m.content) ? m.content : [])
+          .filter((b): b is { type: "tool_use"; toolCallId: string; name: string; input: Record<string, unknown> } => (b as { type: string }).type === "tool_use")
+          .map(({ toolCallId, name, input }) => ({ toolCallId, name, input }));
+        chatMessages.push({ role: "assistant", content: text, ...(thinking ? { thinking } : {}), ...(toolCalls.length ? { toolCalls } : {}) });
+      }
+    }
+
+    // Find unhandled tool_use blocks (no matching tool/tool_permission response)
+    const handledIds = new Set(
+      history
+        .filter((m): m is { role: "tool" | "tool_permission"; toolCallId: string } & Message =>
+          m.role === "tool" || m.role === "tool_permission")
+        .map((m) => m.toolCallId)
+    );
+
+    const unhandled = history
+      .flatMap((m) => Array.isArray((m as { content?: unknown }).content) ? (m as { content: unknown[] }).content : [])
+      .filter((b): b is { type: "tool_use"; toolCallId: string; name: string; input: Record<string, unknown> } =>
+        (b as { type: string }).type === "tool_use" && !handledIds.has((b as { toolCallId: string }).toolCallId));
+
+    // Only show perm for untrusted server tools
+    const untrustedUnhandled = unhandled.filter((b) =>
+      serverTools.some((t) => t.name === b.name && !t.trust)
+    );
+
+    setSessionId(id);
+    setMessages(chatMessages);
+
+    if (untrustedUnhandled.length === 0) return;
+
+    setBusy(true);
+    const toolMessages: Message[] = [];
+    await Promise.all(untrustedUnhandled.map(async (block) => {
+      const granted = await askPermission(block.name, block.input);
+      toolMessages.push({ role: "tool_permission", toolCallId: block.toolCallId, granted });
+      // Attach result to last assistant message
+      setMessages((prev) => {
+        const next = [...prev];
+        const last = next[next.length - 1];
+        if (last?.role === "assistant") {
+          next[next.length - 1] = {
+            ...last,
+            toolCalls: (last.toolCalls ?? []).map((tc) =>
+              tc.toolCallId === block.toolCallId ? { ...tc, result: granted ? "granted" : "denied" } : tc
+            ),
+          };
+        }
+        return next;
+      });
+    }));
+
+    // Resume session
+    try {
+      setMessages((prev) => [...prev, { role: "assistant", content: "", streaming: true }]);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let result = await clientRef.current!.sendTurn(id, { messages: toolMessages, stream } as any);
+      let { stopReason, allMessages, sid: newSid } = await handleResponse(result);
+      const resolvedSid = newSid ?? id;
+      if (newSid) setSessionId(newSid);
+
+      while (stopReason === "tool_use") {
+        const toolUseBlocks = allMessages
+          .flatMap((m) => Array.isArray((m as { content?: unknown }).content) ? (m as { content: unknown[] }).content : [])
+          .filter((b): b is { type: "tool_use"; toolCallId: string; name: string; input: Record<string, unknown> } => (b as { type: string }).type === "tool_use");
+
+        const nextToolMessages: Message[] = [];
+        for (const block of toolUseBlocks) {
+          const clientTool = tools.find((t) => t.spec.name === block.name);
+          const serverTool = serverTools.find((t) => t.name === block.name);
+          let resultText: string;
+          if (clientTool) {
+            resultText = runTool(clientTool, block.input);
+            nextToolMessages.push({ role: "tool", toolCallId: block.toolCallId, content: resultText });
+          } else if (serverTool) {
+            const granted = await askPermission(block.name, block.input);
+            resultText = granted ? "granted" : "denied";
+            nextToolMessages.push({ role: "tool_permission", toolCallId: block.toolCallId, granted });
+          } else {
+            resultText = `Unknown tool: ${block.name}`;
+            nextToolMessages.push({ role: "tool", toolCallId: block.toolCallId, content: resultText });
+          }
+          updateLast((m) => ({
+            ...m,
+            toolCalls: (m.toolCalls ?? []).map((tc) =>
+              tc.toolCallId === block.toolCallId ? { ...tc, result: resultText } : tc
+            ),
+          }));
+        }
+        updateLast((m) => ({ ...m, streaming: true }));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        result = await clientRef.current!.sendTurn(resolvedSid, { messages: nextToolMessages, stream } as any);
+        ({ stopReason, allMessages } = await handleResponse(result));
+      }
+    } catch (e) {
+      updateLast((m) => ({ ...m, content: `Error: ${e}` }));
+    } finally {
+      updateLast((m) => ({ ...m, streaming: false }));
+      setBusy(false);
+    }
   }
 
   async function connect() {
@@ -121,6 +235,7 @@ export default function App() {
     setAgents([]);
     setMessages([]);
     setSessionId(undefined);
+    setPermRequests([]);
   }
 
   function updateLast(updater: (m: ChatMessage) => ChatMessage) {
@@ -326,7 +441,7 @@ export default function App() {
         <SessionsPanel
           client={clientRef.current!}
           currentSessionId={sessionId}
-          onLoad={(id) => { setSessionId(id); setMessages([]); }}
+          onLoad={(id) => { setShowSessions(false); loadSession(id); }}
           onClose={() => setShowSessions(false)}
         />
       )}
@@ -373,14 +488,19 @@ export default function App() {
         <div ref={bottomRef} />
       </div>
 
-      {permRequest && (
+      {permRequests.length > 0 && (
         <div className="perm-prompt">
-          <p>The agent wants to run server tool <strong>{permRequest.toolName}</strong> with:</p>
-          <pre>{JSON.stringify(permRequest.input, null, 2)}</pre>
-          <div className="perm-actions">
-            <button onClick={() => answerPermission(true)}>Allow</button>
-            <button className="disconnect" onClick={() => answerPermission(false)}>Deny</button>
-          </div>
+          <p>The agent wants to run server tool{permRequests.length > 1 ? "s" : ""}:</p>
+          {permRequests.map((req, i) => (
+            <div key={i} className="perm-item">
+              <strong>{req.toolName}</strong>
+              <pre>{JSON.stringify(req.input, null, 2)}</pre>
+              <div className="perm-actions">
+                <button onClick={() => answerPermission(req, true)}>Allow</button>
+                <button className="disconnect" onClick={() => answerPermission(req, false)}>Deny</button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

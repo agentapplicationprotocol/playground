@@ -321,3 +321,6 @@ button.sessions-close:hover { color: #ccc; background: none; }
 .perm-prompt strong { color: #fbbf24; }
 .perm-prompt pre { background: #111; border-radius: 4px; padding: 0.5rem; font-size: 0.8rem; color: #aaa; overflow-x: auto; margin-bottom: 0.75rem; }
 .perm-actions { display: flex; gap: 0.5rem; }
+
+.perm-item { border-top: 1px solid #2a1a00; padding-top: 0.5rem; margin-top: 0.5rem; }
+.perm-item:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
