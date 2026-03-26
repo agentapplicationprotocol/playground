@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Client, type AgentInfo, type SSEEvent, type AgentResponse, type Message } from "@agentapplicationprotocol/sdk";
+import { Client, type AgentInfo, type AgentOption, type SSEEvent, type AgentResponse, type Message } from "@agentapplicationprotocol/sdk";
 import ToolManager, { type ClientTool, type ServerToolState, toServerToolRefs } from "./ToolManager";
 import "./App.css";
 
@@ -65,6 +65,15 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [permRequest, setPermRequest] = useState<PermissionRequest | null>(null);
 
+  const [options, setOptions] = useState<Record<string, string>>({});
+  const lastSentOptionsRef = useRef<Record<string, string> | null>(null);
+
+  function initOptions(agentOptions: AgentOption[]) {
+    const defaults = Object.fromEntries(agentOptions.map((o) => [o.name, o.default]));
+    setOptions(defaults);
+    lastSentOptionsRef.current = null;
+  }
+
   const clientRef = useRef<Client | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -97,6 +106,7 @@ export default function App() {
       if (caps?.chunk) setStream("chunk");
       else if (caps?.message) setStream("message");
       else setStream("none");
+      initOptions(firstAgent?.options ?? []);
       setConnected(true);
     } catch (e) {
       setConnectError(String(e));
@@ -182,6 +192,19 @@ export default function App() {
     try {
       const toolSpecs = tools.map((t) => t.spec);
       const serverToolRefs = toServerToolRefs(serverTools);
+
+      // Compute options to send: always on createSession, only changed values on sendTurn
+      const last = lastSentOptionsRef.current;
+      let optionsToSend: Record<string, string> | undefined;
+      if (!sessionId) {
+        // createSession: always send all options
+        optionsToSend = Object.keys(options).length ? options : undefined;
+      } else {
+        // sendTurn: only send if something changed
+        const changed = Object.fromEntries(Object.entries(options).filter(([k, v]) => last?.[k] !== v));
+        optionsToSend = Object.keys(changed).length ? changed : undefined;
+      }
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const req: any = {
         agent: selectedAgent,
@@ -189,11 +212,14 @@ export default function App() {
         stream,
         ...(toolSpecs.length ? { tools: toolSpecs } : {}),
         ...(serverToolRefs.length ? { serverTools: serverToolRefs } : {}),
+        ...(optionsToSend ? { options: optionsToSend } : {}),
       };
 
       let result = sessionId
         ? await clientRef.current.sendTurn(sessionId, req)
         : await clientRef.current.createSession(req);
+
+      lastSentOptionsRef.current = { ...options };
 
       let { stopReason, allMessages, sid } = await handleResponse(result);
       if (sid) setSessionId(sid);
@@ -284,6 +310,7 @@ export default function App() {
             if (caps?.chunk) setStream("chunk");
             else if (caps?.message) setStream("message");
             else setStream("none");
+            initOptions(agent?.options ?? []);
           }}>
             {agents.map((a) => <option key={a.name} value={a.name}>{a.title ?? a.name}</option>)}
           </select>
@@ -296,6 +323,23 @@ export default function App() {
         serverTools={serverTools} onServerToolsChange={setServerTools}
         clientToolsSupported={selectedAgentInfo?.capabilities?.application?.tools === true}
       />
+
+      {selectedAgentInfo && selectedAgentInfo.options.length > 0 && (
+        <div className="options-bar">
+          {selectedAgentInfo.options.map((opt) => (
+            <label key={opt.name} className="option-field" title={opt.description}>
+              <span>{opt.title ?? opt.name}</span>
+              {opt.type === "select" ? (
+                <select value={options[opt.name] ?? opt.default} onChange={(e) => setOptions((prev) => ({ ...prev, [opt.name]: e.target.value }))}>
+                  {opt.options.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              ) : (
+                <input value={options[opt.name] ?? opt.default} onChange={(e) => setOptions((prev) => ({ ...prev, [opt.name]: e.target.value }))} />
+              )}
+            </label>
+          ))}
+        </div>
+      )}
 
       <div className="messages">
         {messages.length === 0 && <p className="empty">Send a message to start.</p>}

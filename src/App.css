@@ -213,6 +213,25 @@ button.tool-add:hover { border-color: #666; color: #ccc; }
 
 .input-row textarea { resize: none; flex: 1; }
 
+/* ── Options bar ── */
+.options-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #222;
+}
+
+.option-field {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: #aaa;
+}
+
+.option-field input, .option-field select { width: auto; }
+
 /* ── Permission prompt ── */
 .perm-prompt {
   border: 1px solid #854d0e;
