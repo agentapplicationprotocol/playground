@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: process.env.NODE_ENV === 'production' ? '/aap-playground/' : '/',
+  base: process.env.NODE_ENV === 'production' ? '/playground/' : '/',
   optimizeDeps: {
     include: ['@agentapplicationprotocol/sdk', 'eventsource-parser'],
   },
