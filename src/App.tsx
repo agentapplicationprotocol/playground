@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Client, type AgentInfo, type AgentOption, type SSEEvent, type AgentResponse, type Message } from "@agentapplicationprotocol/sdk";
 import ToolManager, { type ClientTool, type ServerToolState, toServerToolRefs } from "./ToolManager";
+import SessionsPanel from "./SessionsPanel";
 import "./App.css";
 
 interface ToolCallRecord {
@@ -64,6 +65,7 @@ export default function App() {
   const [serverTools, setServerTools] = useState<ServerToolState[]>([]);
   const [busy, setBusy] = useState(false);
   const [permRequest, setPermRequest] = useState<PermissionRequest | null>(null);
+  const [showSessions, setShowSessions] = useState(false);
 
   const [options, setOptions] = useState<Record<string, string>>({});
   const lastSentOptionsRef = useRef<Record<string, string> | null>(null);
@@ -315,8 +317,18 @@ export default function App() {
             {agents.map((a) => <option key={a.name} value={a.name}>{a.title ?? a.name}</option>)}
           </select>
           <button className="disconnect" onClick={disconnect}>Disconnect</button>
+          <button onClick={() => setShowSessions((v) => !v)}>Sessions</button>
         </div>
       </header>
+
+      {showSessions && (
+        <SessionsPanel
+          client={clientRef.current!}
+          currentSessionId={sessionId}
+          onLoad={(id) => { setSessionId(id); setMessages([]); }}
+          onClose={() => setShowSessions(false)}
+        />
+      )}
 
       <ToolManager
         clientTools={tools} onClientToolsChange={setTools}

@@ -213,6 +213,81 @@ button.tool-add:hover { border-color: #666; color: #ccc; }
 
 .input-row textarea { resize: none; flex: 1; }
 
+/* ── Sessions panel ── */
+.sessions-panel {
+  border: 1px solid #222;
+  border-radius: 6px;
+  margin: 0.5rem 0;
+  font-size: 0.85rem;
+  overflow: hidden;
+}
+
+.sessions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0.75rem;
+  background: #1a1a1a;
+  border-bottom: 1px solid #222;
+  font-weight: 500;
+}
+
+button.sessions-close {
+  background: none;
+  border: none;
+  color: #888;
+  padding: 0 0.25rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+button.sessions-close:hover { color: #ccc; background: none; }
+
+.sessions-body {
+  display: flex;
+  max-height: 220px;
+}
+
+.sessions-list {
+  list-style: none;
+  width: 220px;
+  min-width: 220px;
+  overflow-y: auto;
+  border-right: 1px solid #222;
+}
+
+.session-item {
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  color: #aaa;
+  border-bottom: 1px solid #1a1a1a;
+}
+.session-item:hover { background: #1e1e1e; color: #e8e8e8; }
+.session-item.selected { background: #1e1e1e; color: #e8e8e8; }
+.session-item.active .session-id::after { content: " ●"; color: #2563eb; font-size: 0.7rem; }
+
+.session-id { font-family: monospace; font-size: 0.78rem; word-break: break-all; }
+
+.sessions-hint { padding: 0.5rem 0.75rem; color: #555; }
+
+.session-detail {
+  flex: 1;
+  padding: 0.6rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  overflow-y: auto;
+}
+
+.session-detail-row {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+}
+.session-detail-row > span:first-child { color: #666; min-width: 60px; }
+.session-detail-row > span:last-child { color: #ccc; word-break: break-all; }
+
+.session-detail button { margin-top: auto; align-self: flex-start; }
+
 /* ── Options bar ── */
 .options-bar {
   display: flex;
