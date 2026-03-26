@@ -208,7 +208,8 @@ export default function App() {
             ),
           }));
         }
-        updateLast((m) => ({ ...m, streaming: true }));
+        updateLast((m) => ({ ...m, streaming: false }));
+        setMessages((prev) => [...prev, { role: "assistant", content: "", streaming: true }]);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         result = await clientRef.current!.sendTurn(resolvedSid, { messages: nextToolMessages, stream } as any);
         ({ stopReason, allMessages } = await handleResponse(result));
@@ -386,7 +387,8 @@ export default function App() {
           }));
         }
 
-        updateLast((m) => ({ ...m, streaming: true }));
+        updateLast((m) => ({ ...m, streaming: false }));
+        setMessages((prev) => [...prev, { role: "assistant", content: "", streaming: true }]);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         result = await clientRef.current.sendTurn(resolvedSid!, { messages: toolMessages, stream } as any);
         ({ stopReason, allMessages, sid } = await handleResponse(result));
