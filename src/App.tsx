@@ -141,9 +141,10 @@ export default function App() {
       .filter((b): b is { type: "tool_use"; toolCallId: string; name: string; input: Record<string, unknown> } =>
         (b as { type: string }).type === "tool_use" && !handledIds.has((b as { toolCallId: string }).toolCallId));
 
-    // Only show perm for untrusted server tools
+    // Show perm for untrusted server tools and untrusted client tools
     const untrustedUnhandled = unhandled.filter((b) =>
-      serverTools.some((t) => t.name === b.name && !t.trust)
+      serverTools.some((t) => t.name === b.name && !t.trust) ||
+      tools.some((t) => t.spec.name === b.name && !t.trust)
     );
 
     setSessionId(id);
@@ -154,7 +155,17 @@ export default function App() {
     setBusy(true);
     const toolMessages: Message[] = [];
     await Promise.all(untrustedUnhandled.map(async (block) => {
-      const granted = await askPermission(block.name, "server", block.input);
+      const clientTool = tools.find((t) => t.spec.name === block.name);
+      const isClient = !!clientTool;
+      const granted = await askPermission(block.name, isClient ? "client" : "server", block.input);
+      const resultText = isClient
+        ? (granted ? runTool(clientTool!, block.input) : "denied")
+        : (granted ? "granted" : "denied");
+      if (isClient) {
+        toolMessages.push({ role: "tool", toolCallId: block.toolCallId, content: resultText });
+      } else {
+        toolMessages.push({ role: "tool_permission", toolCallId: block.toolCallId, granted });
+      }
       // Attach result to last assistant message
       setMessages((prev) => {
         const next = [...prev];
@@ -163,7 +174,7 @@ export default function App() {
           next[next.length - 1] = {
             ...last,
             toolCalls: (last.toolCalls ?? []).map((tc) =>
-              tc.toolCallId === block.toolCallId ? { ...tc, result: granted ? "granted" : "denied" } : tc
+              tc.toolCallId === block.toolCallId ? { ...tc, result: resultText } : tc
             ),
           };
         }
