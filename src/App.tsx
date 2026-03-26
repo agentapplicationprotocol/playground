@@ -99,6 +99,19 @@ export default function App() {
     const session = await clientRef.current.getSession(id);
     const history = session.history?.full ?? session.history?.compacted ?? [];
 
+    // Restore options, server tools
+    if (Object.keys(session.options).length) {
+      setOptions(session.options);
+      lastSentOptionsRef.current = { ...session.options };
+    }
+    if (session.serverTools.length) {
+      setServerTools(session.serverTools.map((ref) => ({
+        name: ref.name,
+        enabled: true,
+        trust: ref.trust,
+      })));
+    }
+
     // Reconstruct chat messages from history
     const chatMessages: ChatMessage[] = [];
     for (const m of history) {
