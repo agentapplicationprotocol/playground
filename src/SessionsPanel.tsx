@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { type Client, type SessionResponse } from "@agentapplicationprotocol/sdk";
 
 interface Props {
@@ -14,7 +14,11 @@ export default function SessionsPanel({ client, currentSessionId, onLoad, onClos
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const fetchedRef = useRef(false);
+
   useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
     setLoading(true);
     client.listSessions()
       .then((r) => setSessions(r.sessions))
