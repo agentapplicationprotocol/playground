@@ -491,7 +491,7 @@ export default function App() {
               <div key={tc.toolCallId} className="tool-call">
                 <span className="tool-call-name">⚙ {tc.name}</span>
                 <pre className="tool-call-input">{JSON.stringify(tc.input, null, 2)}</pre>
-                {tc.result !== undefined && <div className="tool-call-result">↳ {tc.result}</div>}
+                {tc.result !== undefined && <div className={`tool-call-result${tc.result === "denied" ? " denied" : ""}`}>↳ {tc.result}</div>}
               </div>
             ))}
             {m.content && <span className="bubble">{m.content}{m.streaming && <span className="cursor">▋</span>}</span>}

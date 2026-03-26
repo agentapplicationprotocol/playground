@@ -139,6 +139,7 @@ button.disconnect:not(:disabled):hover { background: #4b5563; }
 .tool-call-name { display: block; background: #1a1a1a; padding: 0.25rem 0.6rem; color: #a78bfa; font-weight: 500; }
 .tool-call-input { margin: 0; padding: 0.4rem 0.6rem; background: #111; color: #888; font-size: 0.78rem; overflow-x: auto; }
 .tool-call-result { padding: 0.25rem 0.6rem; color: #6ee7b7; background: #0a1a12; border-top: 1px solid #1a2a1a; }
+.tool-call-result.denied { color: #fca5a5; background: #1a0a0a; border-top-color: #2a1a1a; }
 
 .thinking {
   font-size: 0.82rem;
