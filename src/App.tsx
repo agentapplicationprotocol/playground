@@ -224,6 +224,7 @@ export default function App() {
       lastSentOptionsRef.current = { ...options };
 
       let { stopReason, allMessages, sid } = await handleResponse(result);
+      const resolvedSid = sid ?? sessionId;
       if (sid) setSessionId(sid);
 
       while (stopReason === "tool_use") {
@@ -259,7 +260,7 @@ export default function App() {
 
         updateLast((m) => ({ ...m, streaming: true }));
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        result = await clientRef.current.sendTurn(sid!, { messages: toolMessages, stream } as any);
+        result = await clientRef.current.sendTurn(resolvedSid!, { messages: toolMessages, stream } as any);
         ({ stopReason, allMessages, sid } = await handleResponse(result));
         if (sid) setSessionId(sid);
       }
