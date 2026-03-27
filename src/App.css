@@ -23,7 +23,7 @@ body {
   gap: 2rem;
 }
 
-.connect-screen h1 { font-size: 1.8rem; font-weight: 600; }
+.connect-screen h1 { font-size: 1.8rem; font-weight: 600; text-align: center; }
 
 .connect-form {
   display: flex;

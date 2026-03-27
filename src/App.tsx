@@ -446,7 +446,8 @@ export default function App() {
   if (!connected) {
     return (
       <div className="connect-screen">
-        <h1>AAP Playground</h1>
+        <img src={`${import.meta.env.BASE_URL}favicon.png`} alt="logo" style={{ width: 64, height: 64 }} />
+        <h1>Agent Application Protocol<br />Playground</h1>
         <div className="connect-form">
           <label>Base URL
             <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://your-aap-server.com" />
@@ -464,7 +465,7 @@ export default function App() {
   return (
     <div className="chat-screen">
       <header>
-        <span className="title">AAP Playground</span>
+        <span className="title">Agent Application Playground Playground</span>
         <div className="header-right">
           <label className="stream-toggle">Stream:
             <select value={stream} onChange={(e) => setStream(e.target.value as "none" | "delta" | "message")}>
