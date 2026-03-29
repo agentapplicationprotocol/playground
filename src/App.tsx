@@ -1,70 +1,16 @@
-import { useState, useRef, useEffect, type ReactNode } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Client, type AgentInfo, type AgentOption, type AgentConfig, type SSEEvent, type AgentResponse, type HistoryMessage, type UserMessage, type ToolMessage, type ToolPermissionMessage } from "@agentapplicationprotocol/sdk";
 import ToolManager, { type ClientTool, type ServerToolState, toServerToolRefs } from "./ToolManager";
 import SessionsPanel from "./SessionsPanel";
+import Header from "./Header";
+import { extractContent, historyToChatMessages, getOptionsToSend, runTool, type ChatMessage, type ToolCallRecord } from "./chatUtils";
 import "./App.css";
-
-interface ToolCallRecord {
-  toolCallId: string;
-  name: string;
-  input: Record<string, unknown>;
-  result?: string;
-}
-
-interface ChatMessage {
-  role: "user" | "assistant";
-  thinking?: string;
-  content: string;
-  images?: string[];
-  toolCalls?: ToolCallRecord[];
-  streaming?: boolean;
-}
 
 interface PermissionRequest {
   toolName: string;
   toolType: "client" | "server";
   input: Record<string, unknown>;
   resolve: (granted: boolean) => void;
-}
-
-function Header({ children }: { children?: ReactNode }) {
-  return (
-    <header>
-      <a href="https://agentapplicationprotocol.github.io/playground/" className="header-logo">
-        <img src={`${import.meta.env.BASE_URL}favicon.png`} alt="AAP" width={24} height={24} />
-        <span className="title">AAP Playground</span>
-      </a>
-      <div className="header-right">
-        {children}
-        <a href="https://github.com/agentapplicationprotocol/aap-playground" target="_blank" rel="noreferrer" className="header-link">GitHub</a>
-        <a href="https://agentapplicationprotocol.com/" target="_blank" rel="noreferrer" className="header-link">AAP</a>
-      </div>
-    </header>
-  );
-}
-
-function runTool(tool: ClientTool, input: Record<string, unknown>): string {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
-    return new Function("input", tool.code)(input);
-  } catch (e) {
-    return `Error: ${e}`;
-  }
-}
-
-function extractContent(messages: HistoryMessage[]): { text: string; thinking: string; images: string[] } {
-  let text = "", thinking = "";
-  const images: string[] = [];
-  for (const m of messages) {
-    if (!("content" in m)) continue;
-    const blocks = typeof m.content === "string" ? [{ type: "text" as const, text: m.content }] : m.content;
-    for (const b of blocks) {
-      if (b.type === "text") text += (text ? "\n" : "") + b.text;
-      else if (b.type === "thinking") thinking += (thinking ? "\n" : "") + b.thinking;
-      else if (b.type === "image") images.push(b.url);
-    }
-  }
-  return { text, thinking, images };
 }
 
 export default function App() {
@@ -133,19 +79,7 @@ export default function App() {
     }
 
     // Reconstruct chat messages from history
-    const chatMessages: ChatMessage[] = [];
-    for (const m of history) {
-      if (m.role === "user") {
-        const content = typeof m.content === "string" ? m.content : m.content.filter((b) => b.type === "text").map((b) => (b as { type: "text"; text: string }).text).join("\n");
-        chatMessages.push({ role: "user", content });
-      } else if (m.role === "assistant") {
-        const { text, thinking, images } = extractContent([m]);
-        const toolCalls: ToolCallRecord[] = (Array.isArray(m.content) ? m.content : [])
-          .filter((b): b is { type: "tool_use"; toolCallId: string; name: string; input: Record<string, unknown> } => (b as { type: string }).type === "tool_use")
-          .map(({ toolCallId, name, input }) => ({ toolCallId, name, input }));
-        chatMessages.push({ role: "assistant", content: text, ...(thinking ? { thinking } : {}), ...(images.length ? { images } : {}), ...(toolCalls.length ? { toolCalls } : {}) });
-      }
-    }
+    const chatMessages = historyToChatMessages(history);
 
     // Find unhandled tool_use blocks (no matching tool/tool_permission response)
     const handledIds = new Set(
@@ -364,14 +298,7 @@ export default function App() {
       const serverToolRefs = toServerToolRefs(serverTools);
 
       // Compute options to send: always on createSession, only changed values on sendTurn
-      const last = lastSentOptionsRef.current;
-      let optionsToSend: Record<string, string> | undefined;
-      if (!sessionId) {
-        optionsToSend = Object.keys(options).length ? options : undefined;
-      } else {
-        const changed = Object.fromEntries(Object.entries(options).filter(([k, v]) => last?.[k] !== v));
-        optionsToSend = Object.keys(changed).length ? changed : undefined;
-      }
+      const optionsToSend = getOptionsToSend(options, lastSentOptionsRef.current, !sessionId);
 
       const agentConfig: AgentConfig = {
         name: selectedAgent,
