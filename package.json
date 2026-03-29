@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@agentapplicationprotocol/sdk": "^0.1.0",
+    "@agentapplicationprotocol/sdk": "^0.2.1",
     "eventsource-parser": "^3.0.6",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"

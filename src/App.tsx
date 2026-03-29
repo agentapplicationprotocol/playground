@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Client, type AgentInfo, type AgentOption, type AgentConfig, type SSEEvent, type AgentResponse, type Message, type ToolPermissionMessage } from "@agentapplicationprotocol/sdk";
+import { Client, type AgentInfo, type AgentOption, type AgentConfig, type SSEEvent, type AgentResponse, type HistoryMessage, type UserMessage, type ToolMessage, type ToolPermissionMessage } from "@agentapplicationprotocol/sdk";
 import ToolManager, { type ClientTool, type ServerToolState, toServerToolRefs } from "./ToolManager";
 import SessionsPanel from "./SessionsPanel";
 import "./App.css";
@@ -35,7 +35,7 @@ function runTool(tool: ClientTool, input: Record<string, unknown>): string {
   }
 }
 
-function extractContent(messages: Message[]): { text: string; thinking: string } {
+function extractContent(messages: HistoryMessage[]): { text: string; thinking: string } {
   let text = "", thinking = "";
   for (const m of messages) {
     if (!("content" in m)) continue;
@@ -109,7 +109,7 @@ export default function App() {
       setServerTools(session.agent.tools.map((ref) => ({
         name: ref.name,
         enabled: true,
-        trust: ref.trust,
+        trust: ref.trust ?? false,
       })));
     }
 
@@ -152,7 +152,7 @@ export default function App() {
     if (untrustedUnhandled.length === 0) return;
 
     setBusy(true);
-    const toolMessages: (Message | ToolPermissionMessage)[] = [];
+    const toolMessages: (UserMessage | ToolMessage | ToolPermissionMessage)[] = [];
     await Promise.all(untrustedUnhandled.map(async (block) => {
       const clientTool = tools.find((t) => t.spec.name === block.name);
       const isClient = !!clientTool;
@@ -197,7 +197,7 @@ export default function App() {
           .flatMap((m) => Array.isArray((m as { content?: unknown }).content) ? (m as { content: unknown[] }).content : [])
           .filter((b): b is { type: "tool_use"; toolCallId: string; name: string; input: Record<string, unknown> } => (b as { type: string }).type === "tool_use");
 
-        const nextToolMessages: (Message | ToolPermissionMessage)[] = [];
+        const nextToolMessages: (UserMessage | ToolMessage | ToolPermissionMessage)[] = [];
         for (const block of toolUseBlocks) {
           const clientTool = tools.find((t) => t.spec.name === block.name);
           const serverTool = serverTools.find((t) => t.name === block.name);
@@ -280,8 +280,8 @@ export default function App() {
     });
   }
 
-  async function handleResponse(result: AgentResponse | AsyncIterable<SSEEvent>): Promise<{ stopReason: string; allMessages: Message[]; sid?: string }> {
-    const allMessages: Message[] = [];
+  async function handleResponse(result: AgentResponse | AsyncIterable<SSEEvent>): Promise<{ stopReason: string; allMessages: HistoryMessage[]; sid?: string }> {
+    const allMessages: HistoryMessage[] = [];
     let stopReason = "end_turn";
     let sid: string | undefined;
 
@@ -396,7 +396,7 @@ export default function App() {
           .flatMap((m) => Array.isArray((m as { content?: unknown }).content) ? (m as { content: unknown[] }).content : [])
           .filter((b): b is { type: "tool_use"; toolCallId: string; name: string; input: Record<string, unknown> } => (b as { type: string }).type === "tool_use");
 
-        const toolMessages: (Message | ToolPermissionMessage)[] = [];
+        const toolMessages: (UserMessage | ToolMessage | ToolPermissionMessage)[] = [];
         for (const block of toolUseBlocks) {
           const clientTool = tools.find((t) => t.spec.name === block.name);
           const serverTool = serverTools.find((t) => t.name === block.name);
