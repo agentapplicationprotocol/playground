@@ -15,6 +15,7 @@ interface ChatMessage {
   role: "user" | "assistant";
   thinking?: string;
   content: string;
+  images?: string[];
   toolCalls?: ToolCallRecord[];
   streaming?: boolean;
 }
@@ -35,17 +36,19 @@ function runTool(tool: ClientTool, input: Record<string, unknown>): string {
   }
 }
 
-function extractContent(messages: HistoryMessage[]): { text: string; thinking: string } {
+function extractContent(messages: HistoryMessage[]): { text: string; thinking: string; images: string[] } {
   let text = "", thinking = "";
+  const images: string[] = [];
   for (const m of messages) {
     if (!("content" in m)) continue;
     const blocks = typeof m.content === "string" ? [{ type: "text" as const, text: m.content }] : m.content;
     for (const b of blocks) {
       if (b.type === "text") text += (text ? "\n" : "") + b.text;
       else if (b.type === "thinking") thinking += (thinking ? "\n" : "") + b.thinking;
+      else if (b.type === "image") images.push(b.url);
     }
   }
-  return { text, thinking };
+  return { text, thinking, images };
 }
 
 export default function App() {
@@ -120,11 +123,11 @@ export default function App() {
         const content = typeof m.content === "string" ? m.content : m.content.filter((b) => b.type === "text").map((b) => (b as { type: "text"; text: string }).text).join("\n");
         chatMessages.push({ role: "user", content });
       } else if (m.role === "assistant") {
-        const { text, thinking } = extractContent([m]);
+        const { text, thinking, images } = extractContent([m]);
         const toolCalls: ToolCallRecord[] = (Array.isArray(m.content) ? m.content : [])
           .filter((b): b is { type: "tool_use"; toolCallId: string; name: string; input: Record<string, unknown> } => (b as { type: string }).type === "tool_use")
           .map(({ toolCallId, name, input }) => ({ toolCallId, name, input }));
-        chatMessages.push({ role: "assistant", content: text, ...(thinking ? { thinking } : {}), ...(toolCalls.length ? { toolCalls } : {}) });
+        chatMessages.push({ role: "assistant", content: text, ...(thinking ? { thinking } : {}), ...(images.length ? { images } : {}), ...(toolCalls.length ? { toolCalls } : {}) });
       }
     }
 
@@ -309,7 +312,7 @@ export default function App() {
       sid = response.sessionId;
       stopReason = response.stopReason;
       allMessages.push(...response.messages);
-      const { text, thinking } = extractContent(response.messages);
+      const { text, thinking, images } = extractContent(response.messages);
       const toolCalls: ToolCallRecord[] = response.messages
         .flatMap((m) => Array.isArray((m as { content?: unknown }).content) ? (m as { content: unknown[] }).content : [])
         .filter((b): b is { type: "tool_use"; toolCallId: string; name: string; input: Record<string, unknown> } => (b as { type: string }).type === "tool_use")
@@ -321,7 +324,7 @@ export default function App() {
           if (idx >= 0) merged[idx] = { ...merged[idx], ...tc };
           else merged.push(tc);
         }
-        return { ...m, content: text, ...(thinking ? { thinking } : {}), ...(merged.length ? { toolCalls: merged } : {}) };
+        return { ...m, content: text, ...(thinking ? { thinking } : {}), ...(images.length ? { images } : {}), ...(merged.length ? { toolCalls: merged } : {}) };
       });
     }
 
@@ -542,6 +545,7 @@ export default function App() {
             ))}
             {m.content && <span className="bubble">{m.content}{m.streaming && <span className="cursor">▋</span>}</span>}
             {!m.content && m.streaming && <span className="bubble"><span className="cursor">▋</span></span>}
+            {m.images?.map((url, i) => <img key={i} src={url} className="message-image" alt="" />)}
           </div>
         ))}
         <div ref={bottomRef} />

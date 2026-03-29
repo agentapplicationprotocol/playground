@@ -10,20 +10,30 @@ interface Props {
 
 export default function SessionsPanel({ client, currentSessionId, onLoad, onClose }: Props) {
   const [sessions, setSessions] = useState<string[]>([]);
+  const [next, setNext] = useState<string | undefined>();
   const [detail, setDetail] = useState<SessionResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const fetchedRef = useRef(false);
 
+  async function fetchSessions(after?: string) {
+    setLoading(true);
+    try {
+      const r = await client.listSessions(after ? { after } : undefined);
+      setSessions((prev) => after ? [...prev, ...r.sessions] : r.sessions);
+      setNext(r.next);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     if (fetchedRef.current) return;
     fetchedRef.current = true;
-    setLoading(true);
-    client.listSessions()
-      .then((r) => setSessions(r.sessions))
-      .catch((e) => setError(String(e)))
-      .finally(() => setLoading(false));
+    fetchSessions();
   }, [client]);
 
   async function showDetail(id: string) {
@@ -53,6 +63,11 @@ export default function SessionsPanel({ client, currentSessionId, onLoad, onClos
             </li>
           ))}
           {!loading && sessions.length === 0 && <li className="sessions-hint">No sessions.</li>}
+          {next && !loading && (
+            <li className="sessions-hint" style={{ cursor: "pointer", textDecoration: "underline" }} onClick={() => fetchSessions(next)}>
+              Load more…
+            </li>
+          )}
         </ul>
         {detail && (
           <div className="session-detail">

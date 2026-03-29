@@ -117,6 +117,8 @@ button.disconnect:not(:disabled):hover { background: #4b5563; }
 .message.user { align-items: flex-end; }
 .message.assistant { align-items: flex-start; }
 
+.message-image { max-width: 75%; border-radius: 8px; margin-top: 0.4rem; }
+
 .bubble {
   max-width: 75%;
   padding: 0.6rem 0.9rem;
