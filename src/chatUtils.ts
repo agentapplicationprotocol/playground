@@ -40,6 +40,15 @@ export function extractContent(messages: HistoryMessage[]): { text: string; thin
 }
 
 export function historyToChatMessages(history: HistoryMessage[]): ChatMessage[] {
+  // Build a map of toolCallId -> result from tool messages
+  const toolResults = new Map<string, string>();
+  for (const m of history) {
+    if (m.role === "tool") {
+      const content = typeof m.content === "string" ? m.content : JSON.stringify(m.content);
+      toolResults.set(m.toolCallId, content);
+    }
+  }
+
   const chatMessages: ChatMessage[] = [];
   for (const m of history) {
     if (m.role === "user") {
@@ -51,7 +60,7 @@ export function historyToChatMessages(history: HistoryMessage[]): ChatMessage[] 
       const { text, thinking, images } = extractContent([m]);
       const toolCalls: ToolCallRecord[] = (Array.isArray(m.content) ? m.content : [])
         .filter((b): b is { type: "tool_use"; toolCallId: string; name: string; input: Record<string, unknown> } => (b as { type: string }).type === "tool_use")
-        .map(({ toolCallId, name, input }) => ({ toolCallId, name, input }));
+        .map(({ toolCallId, name, input }) => ({ toolCallId, name, input, ...(toolResults.has(toolCallId) ? { result: toolResults.get(toolCallId) } : {}) }));
       chatMessages.push({
         role: "assistant",
         content: text,

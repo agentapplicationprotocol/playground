@@ -29,7 +29,12 @@ export default function MessageList({ messages, permRequests, busy, input, onInp
               <div key={tc.toolCallId} className="tool-call">
                 <span className="tool-call-name">⚙ {tc.name}</span>
                 <pre className="tool-call-input">{JSON.stringify(tc.input, null, 2)}</pre>
-                {tc.result !== undefined && <div className={`tool-call-result${tc.result === "denied" ? " denied" : ""}`}>↳ {tc.result}</div>}
+                {tc.result !== undefined && (
+                  <details className="tool-call-result-wrap">
+                    <summary className={`tool-call-result${tc.result === "denied" ? " denied" : ""}`}>↳ result</summary>
+                    <pre className="tool-call-input">{tc.result}</pre>
+                  </details>
+                )}
               </div>
             ))}
             {m.content && <span className="bubble">{m.content}{m.streaming && <span className="cursor">▋</span>}</span>}

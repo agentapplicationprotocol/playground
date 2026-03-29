@@ -82,6 +82,14 @@ export default function App() {
             return { ...m, toolCalls: [...(m.toolCalls ?? []), { toolCallId: event.toolCallId, name: event.name, input: event.input }] };
           });
         }
+        else if (event.event === "tool_result") {
+          updateLast((m) => ({
+            ...m,
+            streaming: false,
+            toolCalls: (m.toolCalls ?? []).map((tc) => tc.toolCallId === event.toolCallId ? { ...tc, result: typeof event.content === "string" ? event.content : JSON.stringify(event.content) } : tc),
+          }));
+          setMessages((prev) => [...prev, { role: "assistant", content: "", streaming: true }]);
+        }
         else if (event.event === "turn_stop") stopReason = event.stopReason;
       }
       allMessages.push(...sseEventsToMessages(events));
