@@ -311,6 +311,7 @@ button.sessions-close:hover { color: #ccc; background: none; }
 .options-bar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.75rem;
   padding: 0.4rem 1.5rem;
   border-bottom: 1px solid #222;

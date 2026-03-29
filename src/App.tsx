@@ -361,6 +361,7 @@ export default function App() {
 
       {selectedAgentInfo && (selectedAgentInfo.options ?? []).length > 0 && (
         <div className="options-bar">
+          <span className="tool-label">Server options:</span>
           {(selectedAgentInfo.options ?? []).map((opt) => (
             <label key={opt.name} className="option-field" title={opt.description}>
               <span>{opt.title ?? opt.name}</span>
