@@ -17,6 +17,13 @@ export interface ChatMessage {
   streaming?: boolean;
 }
 
+export interface PermissionRequest {
+  toolName: string;
+  toolType: "client" | "server";
+  input: Record<string, unknown>;
+  resolve: (granted: boolean) => void;
+}
+
 export function extractContent(messages: HistoryMessage[]): { text: string; thinking: string; images: string[] } {
   let text = "", thinking = "";
   const images: string[] = [];
