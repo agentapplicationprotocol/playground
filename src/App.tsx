@@ -30,12 +30,16 @@ export default function App() {
 
   const [options, setOptions] = useState<Record<string, string>>({});
   const lastSentOptionsRef = useRef<Record<string, string> | null>(null);
+  const lastSentToolRefsRef = useRef<string | null>(null);
+  const lastSentToolSpecsRef = useRef<string | null>(null);
   const clientRef = useRef<Client | null>(null);
 
   function initOptions(agentOptions: AgentOption[]) {
     const defaults = Object.fromEntries(agentOptions.map((o) => [o.name, o.default]));
     setOptions(defaults);
     lastSentOptionsRef.current = null;
+    lastSentToolRefsRef.current = null;
+    lastSentToolSpecsRef.current = null;
   }
 
   function askPermission(toolName: string, toolType: "client" | "server", input: Record<string, unknown>): Promise<boolean> {
@@ -255,15 +259,23 @@ export default function App() {
       const serverToolRefs = toServerToolRefs(serverTools);
       const optionsToSend = getOptionsToSend(options, lastSentOptionsRef.current, !sessionId);
 
+      const toolSpecsJson = JSON.stringify(toolSpecs);
+      const toolSpecsChanged = toolSpecsJson !== lastSentToolSpecsRef.current;
+      const serverToolRefsJson = JSON.stringify(serverToolRefs);
+      const serverToolsChanged = serverToolRefsJson !== lastSentToolRefsRef.current;
+
       const agentConfig: AgentConfig = {
         name: selectedAgent,
         ...(serverToolRefs.length ? { tools: serverToolRefs } : {}),
         ...(optionsToSend && !sessionId ? { options: optionsToSend } : {}),
       };
-      const agentUpdate = sessionId && (serverToolRefs.length || optionsToSend)
-        ? { ...(serverToolRefs.length ? { tools: serverToolRefs } : {}), ...(optionsToSend ? { options: optionsToSend } : {}) }
+      const agentUpdate = sessionId && (serverToolsChanged || optionsToSend)
+        ? { ...(serverToolsChanged ? { tools: serverToolRefs } : {}), ...(optionsToSend ? { options: optionsToSend } : {}) }
         : undefined;
-      const baseReq = { messages: [{ role: "user" as const, content: userText }], ...(toolSpecs.length ? { tools: toolSpecs } : {}) };
+      const baseReq = {
+        messages: [{ role: "user" as const, content: userText }],
+        ...(!sessionId || toolSpecsChanged ? { tools: toolSpecs } : {}),
+      };
 
       let result: AgentResponse | AsyncIterable<SSEEvent>;
       if (sessionId) {
@@ -279,6 +291,8 @@ export default function App() {
       }
 
       lastSentOptionsRef.current = { ...options };
+      lastSentToolRefsRef.current = serverToolRefsJson;
+      lastSentToolSpecsRef.current = toolSpecsJson;
       let { stopReason, allMessages, sid } = await handleResponse(result);
       const resolvedSid = sid ?? sessionId;
       if (sid) setSessionId(sid);
