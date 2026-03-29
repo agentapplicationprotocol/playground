@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import { Client, type AgentInfo, type AgentOption, type AgentConfig, type SSEEvent, type AgentResponse, type HistoryMessage, type UserMessage, type ToolMessage, type ToolPermissionMessage } from "@agentapplicationprotocol/sdk";
 import ToolManager, { type ClientTool, type ServerToolState, toServerToolRefs } from "./ToolManager";
 import SessionsPanel from "./SessionsPanel";
@@ -25,6 +25,22 @@ interface PermissionRequest {
   toolType: "client" | "server";
   input: Record<string, unknown>;
   resolve: (granted: boolean) => void;
+}
+
+function Header({ children }: { children?: ReactNode }) {
+  return (
+    <header>
+      <a href="https://agentapplicationprotocol.github.io/playground/" className="header-logo">
+        <img src={`${import.meta.env.BASE_URL}favicon.png`} alt="AAP" width={24} height={24} />
+        <span className="title">AAP Playground</span>
+      </a>
+      <div className="header-right">
+        {children}
+        <a href="https://github.com/agentapplicationprotocol/aap-playground" target="_blank" rel="noreferrer" className="header-link">GitHub</a>
+        <a href="https://agentapplicationprotocol.com/" target="_blank" rel="noreferrer" className="header-link">AAP</a>
+      </div>
+    </header>
+  );
 }
 
 function runTool(tool: ClientTool, input: Record<string, unknown>): string {
@@ -449,7 +465,8 @@ export default function App() {
   if (!connected) {
     return (
       <div className="connect-screen">
-        <img src={`${import.meta.env.BASE_URL}favicon.png`} alt="logo" style={{ width: 64, height: 64 }} />
+        <Header />
+        <div className="connect-body">
         <h1>Agent Application Protocol<br />Playground</h1>
         <div className="connect-form">
           <label>Base URL
@@ -461,15 +478,14 @@ export default function App() {
           {connectError && <p className="error">{connectError}</p>}
           <button onClick={connect} disabled={!baseUrl}>Connect</button>
         </div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="chat-screen">
-      <header>
-        <span className="title">Agent Application Playground Playground</span>
-        <div className="header-right">
+      <Header>
           <label className="stream-toggle">Stream:
             <select value={stream} onChange={(e) => setStream(e.target.value as "none" | "delta" | "message")}>
               <option value="none" disabled={streamCaps ? !streamCaps.none : false}>none</option>
@@ -494,8 +510,7 @@ export default function App() {
           </select>
           <button className="disconnect" onClick={disconnect}>Disconnect</button>
           <button onClick={() => setShowSessions((v) => !v)}>Sessions</button>
-        </div>
-      </header>
+      </Header>
 
       {showSessions && (
         <SessionsPanel
