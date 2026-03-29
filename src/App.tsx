@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Client, resolvePendingToolUse, sseEventsToMessages, type AgentInfo, type AgentOption, type AgentConfig, type SSEEvent, type AgentResponse, type HistoryMessage, type UserMessage, type ToolMessage, type ToolPermissionMessage } from "@agentapplicationprotocol/sdk";
+import { Client, resolvePendingToolUse, sseEventsToMessages, type AgentInfo, type AgentOption, type AgentConfig, type SSEEvent, type AgentResponse, type CreateSessionResponse, type HistoryMessage, type UserMessage, type ToolMessage, type ToolPermissionMessage } from "@agentapplicationprotocol/sdk";
 import ToolManager, { type ClientTool, type ServerToolState, toServerToolRefs } from "./ToolManager";
 import SessionsPanel from "./SessionsPanel";
 import Header from "./Header";
@@ -57,7 +57,7 @@ export default function App() {
     });
   }
 
-  async function handleResponse(result: AgentResponse | AsyncIterable<SSEEvent>): Promise<{ stopReason: string; allMessages: HistoryMessage[]; sid?: string }> {
+  async function handleResponse(result: CreateSessionResponse | AgentResponse | AsyncIterable<SSEEvent>): Promise<{ stopReason: string; allMessages: HistoryMessage[]; sid?: string }> {
     const allMessages: HistoryMessage[] = [];
     let stopReason = "end_turn";
     let sid: string | undefined;
@@ -82,8 +82,8 @@ export default function App() {
       }
       allMessages.push(...sseEventsToMessages(events));
     } else {
-      const response = result as AgentResponse;
-      sid = response.sessionId;
+      const response = result as CreateSessionResponse | AgentResponse;
+      sid = (response as CreateSessionResponse).sessionId;
       stopReason = response.stopReason;
       allMessages.push(...response.messages);
       const { text, thinking, images } = extractContent(response.messages);
