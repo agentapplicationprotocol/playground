@@ -73,6 +73,9 @@ button {
 button:disabled { opacity: 0.4; cursor: default; }
 button:not(:disabled):hover { background: #1d4ed8; }
 
+.example-agents-link { text-align: center; font-size: 0.85rem; color: #888; text-decoration: none; }
+.example-agents-link:hover { color: #aaa; }
+
 .error { color: #f87171; font-size: 0.85rem; }
 
 /* ── Chat screen ── */

@@ -5,7 +5,7 @@ export default function Header({ children }: { children?: ReactNode }) {
     <header>
       <a href="https://agentapplicationprotocol.github.io/playground/" className="header-logo">
         <img src={`${import.meta.env.BASE_URL}favicon.png`} alt="AAP" width={24} height={24} />
-        <span className="title">AAP Playground</span>
+        <span className="title">Playground</span>
       </a>
       <div className="header-right">
         {children}

@@ -14,7 +14,7 @@ export default function ConnectScreen({ baseUrl, apiKey, connectError, onBaseUrl
     <div className="connect-screen">
       <Header />
       <div className="connect-body">
-        <h1>Agent Application Protocol<br />Playground</h1>
+        <h1>Playground</h1>
         <div className="connect-form">
           <label>Base URL
             <input value={baseUrl} onChange={(e) => onBaseUrlChange(e.target.value)} placeholder="https://your-aap-server.com" />
@@ -24,6 +24,7 @@ export default function ConnectScreen({ baseUrl, apiKey, connectError, onBaseUrl
           </label>
           {connectError && <p className="error">{connectError}</p>}
           <button onClick={onConnect} disabled={!baseUrl}>Connect</button>
+          <a className="example-agents-link" href="https://github.com/agentapplicationprotocol/agents" target="_blank" rel="noopener noreferrer">Example agents</a>
         </div>
       </div>
     </div>
