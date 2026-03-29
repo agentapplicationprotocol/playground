@@ -45,6 +45,16 @@ export default function SessionsPanel({ client, currentSessionId, onLoad, onClos
     }
   }
 
+  async function deleteSession(id: string) {
+    try {
+      await client.deleteSession(id);
+      setSessions((prev) => prev.filter((s) => s !== id));
+      if (detail?.sessionId === id) setDetail(null);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
   return (
     <div className="sessions-panel">
       <div className="sessions-header">
@@ -79,6 +89,7 @@ export default function SessionsPanel({ client, currentSessionId, onLoad, onClos
             <button onClick={() => { onLoad(detail.sessionId); onClose(); }}>
               {detail.sessionId === currentSessionId ? "Already active" : "Load session"}
             </button>
+            <button className="danger" onClick={() => deleteSession(detail.sessionId)}>Delete</button>
           </div>
         )}
       </div>

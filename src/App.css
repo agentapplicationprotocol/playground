@@ -109,6 +109,8 @@ header {
 
 button.disconnect { background: #374151; }
 button.disconnect:not(:disabled):hover { background: #4b5563; }
+button.danger { background: #7f1d1d; }
+button.danger:not(:disabled):hover { background: #991b1b; }
 
 .messages {
   flex: 1;
