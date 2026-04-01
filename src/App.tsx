@@ -8,6 +8,7 @@ import type {
   UserMessage,
   ToolMessage,
   ToolPermissionMessage,
+  SessionResponse,
 } from "@agentapplicationprotocol/core";
 import ToolManager, {
   type ClientTool,
@@ -240,9 +241,16 @@ export default function App() {
     }
   }
 
-  async function loadSession(id: string) {
+  async function loadSession(sessionResponse: SessionResponse) {
     if (!clientRef.current) return;
-    const { session, pending } = await Session.load(clientRef.current, id, agents, "full");
+    const agentInfo = agents.find((a) => a.name === sessionResponse.agent.name);
+    if (!agentInfo) throw new Error(`Agent not found: ${sessionResponse.agent.name}`);
+    const { session, pending } = await Session.load(
+      clientRef.current,
+      sessionResponse,
+      agentInfo,
+      "full",
+    );
 
     if (session.agentConfig.options && Object.keys(session.agentConfig.options).length)
       setOptions(session.agentConfig.options);
@@ -255,7 +263,7 @@ export default function App() {
         })),
       );
 
-    setSessionId(id);
+    setSessionId(sessionResponse.sessionId);
     setMessages(historyToChatMessages(session.history));
     sessionRef.current = session;
 
@@ -482,9 +490,9 @@ export default function App() {
         <SessionsPanel
           client={clientRef.current!}
           currentSessionId={sessionId}
-          onLoad={(id) => {
+          onLoad={(s) => {
             setShowSessions(false);
-            loadSession(id);
+            loadSession(s);
           }}
           onClose={() => setShowSessions(false)}
         />

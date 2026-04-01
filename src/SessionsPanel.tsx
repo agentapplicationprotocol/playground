@@ -5,12 +5,12 @@ import { type SessionResponse } from "@agentapplicationprotocol/core";
 interface Props {
   client: Client;
   currentSessionId?: string;
-  onLoad: (sessionId: string) => void;
+  onLoad: (session: SessionResponse) => void;
   onClose: () => void;
 }
 
 export default function SessionsPanel({ client, currentSessionId, onLoad, onClose }: Props) {
-  const [sessions, setSessions] = useState<string[]>([]);
+  const [sessions, setSessions] = useState<SessionResponse[]>([]);
   const [next, setNext] = useState<string | undefined>();
   const [detail, setDetail] = useState<SessionResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -37,19 +37,14 @@ export default function SessionsPanel({ client, currentSessionId, onLoad, onClos
     fetchSessions();
   }, [client]);
 
-  async function showDetail(id: string) {
-    setDetail(null);
-    try {
-      setDetail(await client.getSession(id));
-    } catch (e) {
-      setError(String(e));
-    }
+  async function showDetail(s: SessionResponse) {
+    setDetail(s);
   }
 
   async function deleteSession(id: string) {
     try {
       await client.deleteSession(id);
-      setSessions((prev) => prev.filter((s) => s !== id));
+      setSessions((prev) => prev.filter((s) => s.sessionId !== id));
       if (detail?.sessionId === id) setDetail(null);
     } catch (e) {
       setError(String(e));
@@ -68,17 +63,17 @@ export default function SessionsPanel({ client, currentSessionId, onLoad, onClos
       {loading && <p className="sessions-hint">Loading…</p>}
       <div className="sessions-body">
         <ul className="sessions-list">
-          {sessions.map((id) => (
+          {sessions.map((s) => (
             <li
-              key={id}
+              key={s.sessionId}
               className={
                 "session-item" +
-                (id === currentSessionId ? " active" : "") +
-                (id === detail?.sessionId ? " selected" : "")
+                (s.sessionId === currentSessionId ? " active" : "") +
+                (s.sessionId === detail?.sessionId ? " selected" : "")
               }
-              onClick={() => showDetail(id)}
+              onClick={() => showDetail(s)}
             >
-              <span className="session-id">{id}</span>
+              <span className="session-id">{s.sessionId}</span>
             </li>
           ))}
           {!loading && sessions.length === 0 && <li className="sessions-hint">No sessions.</li>}
@@ -104,17 +99,11 @@ export default function SessionsPanel({ client, currentSessionId, onLoad, onClos
                 <span>{JSON.stringify(detail.agent.options)}</span>
               </div>
             )}
-            {detail.history?.full && (
-              <div className="session-detail-row">
-                <span>Messages</span>
-                <span>{detail.history.full.length}</span>
-              </div>
-            )}
             <div style={{ display: "flex", gap: "0.5rem", marginTop: "auto" }}>
               <button
                 disabled={detail.sessionId === currentSessionId}
                 onClick={() => {
-                  onLoad(detail.sessionId);
+                  onLoad(detail);
                   onClose();
                 }}
               >
