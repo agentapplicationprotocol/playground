@@ -1,4 +1,4 @@
-import type { HistoryMessage } from "@agentapplicationprotocol/sdk";
+import type { HistoryMessage } from "@agentapplicationprotocol/core";
 import type { ClientTool } from "./ToolManager";
 
 export interface ToolCallRecord {

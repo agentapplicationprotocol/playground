@@ -1,11 +1,12 @@
 import { useState, useRef } from "react";
-import { Client, resolvePendingToolUse, sseEventsToMessages, type AgentInfo, type AgentOption, type AgentConfig, type SSEEvent, type AgentResponse, type CreateSessionResponse, type HistoryMessage, type UserMessage, type ToolMessage, type ToolPermissionMessage } from "@agentapplicationprotocol/sdk";
+import { Client, Session } from "@agentapplicationprotocol/client";
+import type { AgentInfo, AgentOption, SSEEvent, HistoryMessage, UserMessage, ToolMessage, ToolPermissionMessage } from "@agentapplicationprotocol/core";
 import ToolManager, { type ClientTool, type ServerToolState, toServerToolRefs } from "./ToolManager";
 import SessionsPanel from "./SessionsPanel";
 import Header from "./Header";
 import ConnectScreen from "./ConnectScreen";
 import MessageList from "./MessageList";
-import { extractContent, historyToChatMessages, getOptionsToSend, runTool, type ChatMessage, type ToolCallRecord, type PermissionRequest } from "./chatUtils";
+import { extractContent, historyToChatMessages, runTool, type ChatMessage, type ToolCallRecord, type PermissionRequest } from "./chatUtils";
 import "./App.css";
 
 export default function App() {
@@ -29,17 +30,12 @@ export default function App() {
   const [showSessions, setShowSessions] = useState(false);
 
   const [options, setOptions] = useState<Record<string, string>>({});
-  const lastSentOptionsRef = useRef<Record<string, string> | null>(null);
-  const lastSentToolRefsRef = useRef<string | null>(null);
-  const lastSentToolSpecsRef = useRef<string | null>(null);
   const clientRef = useRef<Client | null>(null);
+  const sessionRef = useRef<Session | null>(null);
 
   function initOptions(agentOptions: AgentOption[]) {
     const defaults = Object.fromEntries(agentOptions.map((o) => [o.name, o.default]));
     setOptions(defaults);
-    lastSentOptionsRef.current = null;
-    lastSentToolRefsRef.current = null;
-    lastSentToolSpecsRef.current = null;
   }
 
   function askPermission(toolName: string, toolType: "client" | "server", input: Record<string, unknown>): Promise<boolean> {
@@ -61,74 +57,48 @@ export default function App() {
     });
   }
 
-  async function handleResponse(result: CreateSessionResponse | AgentResponse | AsyncIterable<SSEEvent>): Promise<{ stopReason: string; allMessages: HistoryMessage[]; sid?: string }> {
-    const allMessages: HistoryMessage[] = [];
-    let stopReason = "end_turn";
-    let sid: string | undefined;
-
-    if (result && Symbol.asyncIterator in result) {
-      const events: SSEEvent[] = [];
-      for await (const event of result as AsyncIterable<SSEEvent>) {
-        events.push(event);
-        if (event.event === "session_start") sid = event.sessionId;
-        else if (event.event === "text_delta") updateLast((m) => ({ ...m, content: m.content + event.delta }));
-        else if (event.event === "text") updateLast((m) => ({ ...m, content: event.text }));
-        else if (event.event === "thinking_delta") updateLast((m) => ({ ...m, thinking: (m.thinking ?? "") + event.delta }));
-        else if (event.event === "thinking") updateLast((m) => ({ ...m, thinking: event.thinking }));
-        else if (event.event === "tool_call") {
-          updateLast((m) => {
-            const existing = m.toolCalls?.find((tc) => tc.toolCallId === event.toolCallId);
-            if (existing) return { ...m, toolCalls: (m.toolCalls ?? []).map((tc) => tc.toolCallId === event.toolCallId ? { ...tc, name: event.name, input: event.input } : tc) };
-            return { ...m, toolCalls: [...(m.toolCalls ?? []), { toolCallId: event.toolCallId, name: event.name, input: event.input }] };
-          });
-        }
-        else if (event.event === "tool_result") {
-          updateLast((m) => ({
-            ...m,
-            streaming: false,
-            toolCalls: (m.toolCalls ?? []).map((tc) => tc.toolCallId === event.toolCallId ? { ...tc, result: typeof event.content === "string" ? event.content : JSON.stringify(event.content) } : tc),
-          }));
-          setMessages((prev) => [...prev, { role: "assistant", content: "", streaming: true }]);
-        }
-        else if (event.event === "turn_stop") stopReason = event.stopReason;
-      }
-      allMessages.push(...sseEventsToMessages(events));
-    } else {
-      const response = result as CreateSessionResponse | AgentResponse;
-      sid = (response as CreateSessionResponse).sessionId;
-      stopReason = response.stopReason;
-      allMessages.push(...response.messages);
-      const { text, thinking, images } = extractContent(response.messages);
-      const toolCalls: ToolCallRecord[] = response.messages
-        .flatMap((m) => Array.isArray((m as { content?: unknown }).content) ? (m as { content: unknown[] }).content : [])
-        .filter((b): b is { type: "tool_use"; toolCallId: string; name: string; input: Record<string, unknown> } => (b as { type: string }).type === "tool_use")
-        .map(({ toolCallId, name, input }) => ({ toolCallId, name, input }));
+  function sseCallback(event: SSEEvent) {
+    if (event.event === "text_delta") updateLast((m) => ({ ...m, content: m.content + event.delta }));
+    else if (event.event === "text") updateLast((m) => ({ ...m, content: event.text }));
+    else if (event.event === "thinking_delta") updateLast((m) => ({ ...m, thinking: (m.thinking ?? "") + event.delta }));
+    else if (event.event === "thinking") updateLast((m) => ({ ...m, thinking: event.thinking }));
+    else if (event.event === "tool_call") {
       updateLast((m) => {
-        const merged = [...(m.toolCalls ?? [])];
-        for (const tc of toolCalls) {
-          const idx = merged.findIndex((x) => x.toolCallId === tc.toolCallId);
-          if (idx >= 0) merged[idx] = { ...merged[idx], ...tc };
-          else merged.push(tc);
-        }
-        return { ...m, content: text, ...(thinking ? { thinking } : {}), ...(images.length ? { images } : {}), ...(merged.length ? { toolCalls: merged } : {}) };
+        const existing = m.toolCalls?.find((tc) => tc.toolCallId === event.toolCallId);
+        if (existing) return { ...m, toolCalls: (m.toolCalls ?? []).map((tc) => tc.toolCallId === event.toolCallId ? { ...tc, name: event.name, input: event.input } : tc) };
+        return { ...m, toolCalls: [...(m.toolCalls ?? []), { toolCallId: event.toolCallId, name: event.name, input: event.input }] };
       });
+    } else if (event.event === "tool_result") {
+      updateLast((m) => ({
+        ...m,
+        streaming: false,
+        toolCalls: (m.toolCalls ?? []).map((tc) => tc.toolCallId === event.toolCallId ? { ...tc, result: typeof event.content === "string" ? event.content : JSON.stringify(event.content) } : tc),
+      }));
+      setMessages((prev) => [...prev, { role: "assistant", content: "", streaming: true }]);
     }
-
-    return { stopReason, allMessages, sid };
   }
 
-  async function processTurnLoop(
-    resolvedSid: string,
-    stopReason: string,
-    allMessages: HistoryMessage[],
-  ) {
-    while (stopReason === "tool_use") {
-      const toolUseBlocks = allMessages
-        .flatMap((m) => Array.isArray((m as { content?: unknown }).content) ? (m as { content: unknown[] }).content : [])
-        .filter((b): b is { type: "tool_use"; toolCallId: string; name: string; input: Record<string, unknown> } => (b as { type: string }).type === "tool_use");
+  function applyNonStreamingMessages(messages: HistoryMessage[]) {
+    const { text, thinking, images } = extractContent(messages);
+    const toolCalls: ToolCallRecord[] = messages
+      .flatMap((m) => Array.isArray((m as { content?: unknown }).content) ? (m as { content: unknown[] }).content : [])
+      .filter((b): b is { type: "tool_use"; toolCallId: string; name: string; input: Record<string, unknown> } => (b as { type: string }).type === "tool_use")
+      .map(({ toolCallId, name, input }) => ({ toolCallId, name, input }));
+    updateLast((m) => {
+      const merged = [...(m.toolCalls ?? [])];
+      for (const tc of toolCalls) {
+        const idx = merged.findIndex((x) => x.toolCallId === tc.toolCallId);
+        if (idx >= 0) merged[idx] = { ...merged[idx], ...tc };
+        else merged.push(tc);
+      }
+      return { ...m, content: text, ...(thinking ? { thinking } : {}), ...(images.length ? { images } : {}), ...(merged.length ? { toolCalls: merged } : {}) };
+    });
+  }
 
+  async function processPending(session: Session, pending: { client: { toolCallId: string; name: string; input: Record<string, unknown> }[]; server: { toolCallId: string; name: string; input: Record<string, unknown> }[] }) {
+    while (pending.client.length || pending.server.length) {
       const toolMessages: (UserMessage | ToolMessage | ToolPermissionMessage)[] = [];
-      for (const block of toolUseBlocks) {
+      for (const block of [...pending.client, ...pending.server]) {
         const clientTool = tools.find((t) => t.spec.name === block.name);
         const serverTool = serverTools.find((t) => t.name === block.name);
         let resultText: string;
@@ -151,71 +121,44 @@ export default function App() {
         }
         updateLast((m) => ({
           ...m,
-          toolCalls: (m.toolCalls ?? []).map((tc) =>
-            tc.toolCallId === block.toolCallId ? { ...tc, result: resultText! } : tc
-          ),
+          toolCalls: (m.toolCalls ?? []).map((tc) => tc.toolCallId === block.toolCallId ? { ...tc, result: resultText! } : tc),
         }));
       }
 
       updateLast((m) => ({ ...m, streaming: false }));
       setMessages((prev) => [...prev, { role: "assistant", content: "", streaming: true }]);
-      const result = stream === "none"
-        ? await clientRef.current!.sendTurn(resolvedSid, { messages: toolMessages, stream: "none" })
-        : await clientRef.current!.sendTurn(resolvedSid, { messages: toolMessages, stream });
-      ({ stopReason, allMessages } = await handleResponse(result));
+      const req = { messages: toolMessages, stream: stream as "none" | "delta" | "message" };
+      pending = stream === "none"
+        ? await (async () => { const p = await session.send({ ...req, stream: "none" }); applyNonStreamingMessages(session.history.slice(-1)); return p; })()
+        : await session.send(req, sseCallback);
     }
   }
 
   async function loadSession(id: string) {
     if (!clientRef.current) return;
-    const session = await clientRef.current.getSession(id);
-    const history = session.history?.full ?? session.history?.compacted ?? [];
+    const agentInfo = agents.find((a) => a.name === selectedAgent) ?? { name: selectedAgent, version: "unknown" };
+    const { session, pending } = await Session.load(clientRef.current, id, agentInfo, "full");
 
-    if (session.agent.options && Object.keys(session.agent.options).length) {
-      setOptions(session.agent.options);
-      lastSentOptionsRef.current = { ...session.agent.options };
-    }
-    if (session.agent.tools && session.agent.tools.length) {
-      setServerTools(session.agent.tools.map((ref) => ({ name: ref.name, enabled: true, trust: ref.trust ?? false })));
-    }
+    if (session.agentConfig.options && Object.keys(session.agentConfig.options).length) setOptions(session.agentConfig.options);
+    if (session.agentConfig.tools?.length) setServerTools(session.agentConfig.tools.map((ref) => ({ name: ref.name, enabled: true, trust: ref.trust ?? false })));
 
     setSessionId(id);
-    setMessages(historyToChatMessages(history));
+    setMessages(historyToChatMessages(session.history));
+    sessionRef.current = session;
 
-    const { client: clientBlocks, server: serverBlocks } = resolvePendingToolUse(history, tools.map((t) => t.spec));
     const untrustedUnhandled = [
-      ...clientBlocks.filter((b) => !tools.find((t) => t.spec.name === b.name)?.trust),
-      ...serverBlocks.filter((b) => !serverTools.find((t) => t.name === b.name)?.trust),
+      ...pending.client.filter((b) => !tools.find((t) => t.spec.name === b.name)?.trust),
+      ...pending.server.filter((b) => !serverTools.find((t) => t.name === b.name)?.trust),
     ];
     if (untrustedUnhandled.length === 0) return;
 
     setBusy(true);
-    const toolMessages: (UserMessage | ToolMessage | ToolPermissionMessage)[] = [];
-    await Promise.all(untrustedUnhandled.map(async (block) => {
-      const clientTool = tools.find((t) => t.spec.name === block.name);
-      const isClient = !!clientTool;
-      const granted = await askPermission(block.name, isClient ? "client" : "server", block.input);
-      const resultText = isClient ? (granted ? runTool(clientTool!, block.input) : "denied") : (granted ? "granted" : "denied");
-      toolMessages.push(isClient
-        ? { role: "tool", toolCallId: block.toolCallId, content: resultText }
-        : { role: "tool_permission", toolCallId: block.toolCallId, granted });
-      setMessages((prev) => {
-        const next = [...prev];
-        const last = next[next.length - 1];
-        if (last?.role === "assistant")
-          next[next.length - 1] = { ...last, toolCalls: (last.toolCalls ?? []).map((tc) => tc.toolCallId === block.toolCallId ? { ...tc, result: resultText } : tc) };
-        return next;
-      });
-    }));
-
     try {
-      setMessages((prev) => [...prev, { role: "assistant", content: "", streaming: true }]);
-      const result = stream === "none"
-        ? await clientRef.current!.sendTurn(id, { messages: toolMessages, stream: "none" })
-        : await clientRef.current!.sendTurn(id, { messages: toolMessages, stream });
-      const { stopReason, allMessages, sid: newSid } = await handleResponse(result);
-      if (newSid) setSessionId(newSid);
-      await processTurnLoop(newSid ?? id, stopReason, allMessages);
+      const clientIds = new Set(pending.client.map((b) => b.toolCallId));
+      await processPending(session, {
+        client: untrustedUnhandled.filter((b) => clientIds.has(b.toolCallId)),
+        server: untrustedUnhandled.filter((b) => !clientIds.has(b.toolCallId)),
+      });
     } catch (e) {
       updateLast((m) => ({ ...m, content: `Error: ${e}` }));
     } finally {
@@ -247,6 +190,7 @@ export default function App() {
 
   function disconnect() {
     clientRef.current = null;
+    sessionRef.current = null;
     setConnected(false);
     setAgents([]);
     setMessages([]);
@@ -265,46 +209,37 @@ export default function App() {
     try {
       const toolSpecs = tools.map((t) => t.spec);
       const serverToolRefs = toServerToolRefs(serverTools);
-      const optionsToSend = getOptionsToSend(options, lastSentOptionsRef.current, !sessionId);
+      const agentInfo = selectedAgentInfo ?? { name: selectedAgent, version: "unknown" };
 
-      const toolSpecsJson = JSON.stringify(toolSpecs);
-      const toolSpecsChanged = toolSpecsJson !== lastSentToolSpecsRef.current;
-      const serverToolRefsJson = JSON.stringify(serverToolRefs);
-      const serverToolsChanged = serverToolRefsJson !== lastSentToolRefsRef.current;
+      let pending: { client: { toolCallId: string; name: string; input: Record<string, unknown> }[]; server: { toolCallId: string; name: string; input: Record<string, unknown> }[] };
 
-      const agentConfig: AgentConfig = {
-        name: selectedAgent,
-        ...(serverToolRefs.length ? { tools: serverToolRefs } : {}),
-        ...(optionsToSend && !sessionId ? { options: optionsToSend } : {}),
-      };
-      const agentUpdate = sessionId && (serverToolsChanged || optionsToSend)
-        ? { ...(serverToolsChanged ? { tools: serverToolRefs } : {}), ...(optionsToSend ? { options: optionsToSend } : {}) }
-        : undefined;
-      const baseReq = {
-        messages: [{ role: "user" as const, content: userText }],
-        ...(!sessionId || toolSpecsChanged ? { tools: toolSpecs } : {}),
-      };
-
-      let result: AgentResponse | AsyncIterable<SSEEvent>;
-      if (sessionId) {
-        const turnReq = { ...baseReq, ...(agentUpdate ? { agent: agentUpdate } : {}) };
-        result = stream === "none"
-          ? await clientRef.current.sendTurn(sessionId, { ...turnReq, stream: "none" as const })
-          : await clientRef.current.sendTurn(sessionId, { ...turnReq, stream });
+      if (!sessionRef.current) {
+        const req = {
+          agent: { name: selectedAgent, ...(serverToolRefs.length ? { tools: serverToolRefs } : {}), ...(Object.keys(options).length ? { options } : {}) },
+          messages: [{ role: "user" as const, content: userText }],
+          ...(toolSpecs.length ? { tools: toolSpecs } : {}),
+          stream: stream as "none" | "delta" | "message",
+        };
+        const { session, pending: p } = stream === "none"
+          ? await Session.create(clientRef.current, { ...req, stream: "none" }, agentInfo)
+          : await Session.create(clientRef.current, req, agentInfo, sseCallback);
+        if (stream === "none") applyNonStreamingMessages(session.history.slice(-1));
+        sessionRef.current = session;
+        setSessionId(session.sessionId);
+        pending = p;
       } else {
-        const sessionReq = { ...baseReq, agent: agentConfig };
-        result = stream === "none"
-          ? await clientRef.current.createSession({ ...sessionReq, stream: "none" as const })
-          : await clientRef.current.createSession({ ...sessionReq, stream });
+        const req = {
+          messages: [{ role: "user" as const, content: userText }],
+          agent: { ...(serverToolRefs.length ? { tools: serverToolRefs } : {}), ...(Object.keys(options).length ? { options } : {}) },
+          ...(toolSpecs.length ? { tools: toolSpecs } : {}),
+          stream: stream as "none" | "delta" | "message",
+        };
+        pending = stream === "none"
+          ? await (async () => { const p = await sessionRef.current!.send({ ...req, stream: "none" }); applyNonStreamingMessages(sessionRef.current!.history.slice(-1)); return p; })()
+          : await sessionRef.current.send(req, sseCallback);
       }
 
-      lastSentOptionsRef.current = { ...options };
-      lastSentToolRefsRef.current = serverToolRefsJson;
-      lastSentToolSpecsRef.current = toolSpecsJson;
-      let { stopReason, allMessages, sid } = await handleResponse(result);
-      const resolvedSid = sid ?? sessionId;
-      if (sid) setSessionId(sid);
-      await processTurnLoop(resolvedSid!, stopReason, allMessages);
+      await processPending(sessionRef.current, pending);
     } catch (e) {
       updateLast((m) => ({ ...m, content: `Error: ${e}` }));
     } finally {
@@ -331,6 +266,7 @@ export default function App() {
         <select value={selectedAgent} onChange={(e) => {
           const name = e.target.value;
           setSelectedAgent(name);
+          sessionRef.current = null;
           setSessionId(undefined);
           setMessages([]);
           const agent = agents.find((a) => a.name === name);
@@ -345,7 +281,7 @@ export default function App() {
         </select>
         <button className="disconnect" onClick={disconnect}>Disconnect</button>
         <button onClick={() => setShowSessions((v) => !v)}>Sessions</button>
-        <button onClick={() => { setSessionId(undefined); setMessages([]); }}>New Session</button>
+        <button onClick={() => { sessionRef.current = null; setSessionId(undefined); setMessages([]); }}>New Session</button>
       </Header>
 
       {showSessions && (

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ToolSpec, ServerToolRef } from "@agentapplicationprotocol/sdk";
+import type { ToolSpec, ServerToolRef } from "@agentapplicationprotocol/core";
 
 export interface ClientTool {
   spec: ToolSpec;

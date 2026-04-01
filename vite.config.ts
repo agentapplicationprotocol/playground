@@ -5,6 +5,6 @@ export default defineConfig({
   plugins: [react()],
   base: process.env.NODE_ENV === 'production' ? '/playground/' : '/',
   optimizeDeps: {
-    include: ['@agentapplicationprotocol/sdk', 'eventsource-parser'],
+    include: ['eventsource-parser'],
   },
 })

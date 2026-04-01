@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { type Client, type SessionResponse } from "@agentapplicationprotocol/sdk";
+import { type Client } from "@agentapplicationprotocol/client";
+import { type SessionResponse } from "@agentapplicationprotocol/core";
 
 interface Props {
   client: Client;

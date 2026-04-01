@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { extractContent, historyToChatMessages, getOptionsToSend, runTool } from "./chatUtils";
-import type { HistoryMessage } from "@agentapplicationprotocol/sdk";
+import type { HistoryMessage } from "@agentapplicationprotocol/core";
 import type { ClientTool } from "./ToolManager";
 
 describe("extractContent", () => {
