@@ -242,11 +242,7 @@ export default function App() {
 
   async function loadSession(id: string) {
     if (!clientRef.current) return;
-    const agentInfo = agents.find((a) => a.name === selectedAgent) ?? {
-      name: selectedAgent,
-      version: "unknown",
-    };
-    const { session, pending } = await Session.load(clientRef.current, id, agentInfo, "full");
+    const { session, pending } = await Session.load(clientRef.current, id, agents, "full");
 
     if (session.agentConfig.options && Object.keys(session.agentConfig.options).length)
       setOptions(session.agentConfig.options);
