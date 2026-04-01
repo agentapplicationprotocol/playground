@@ -24,7 +24,7 @@ export default function ConnectScreen({ baseUrl, apiKey, connectError, onBaseUrl
           </label>
           {connectError && <p className="error">{connectError}</p>}
           <button onClick={onConnect} disabled={!baseUrl}>Connect</button>
-          <a className="example-agents-link" href="https://github.com/agentapplicationprotocol/agents" target="_blank" rel="noopener noreferrer">Example agents</a>
+          <a className="example-agents-link" href="https://github.com/agentapplicationprotocol/typescript-sdk/tree/main/packages/server/src/examples" target="_blank" rel="noopener noreferrer">Example agents</a>
         </div>
       </div>
     </div>
