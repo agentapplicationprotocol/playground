@@ -9,8 +9,22 @@ export default function Header({ children }: { children?: ReactNode }) {
       </a>
       <div className="header-right">
         {children}
-        <a href="https://github.com/agentapplicationprotocol/aap-playground" target="_blank" rel="noreferrer" className="header-link">GitHub</a>
-        <a href="https://agentapplicationprotocol.com/" target="_blank" rel="noreferrer" className="header-link">AAP</a>
+        <a
+          href="https://github.com/agentapplicationprotocol/playground"
+          target="_blank"
+          rel="noreferrer"
+          className="header-link"
+        >
+          GitHub
+        </a>
+        <a
+          href="https://agentapplicationprotocol.com/"
+          target="_blank"
+          rel="noreferrer"
+          className="header-link"
+        >
+          AAP
+        </a>
       </div>
     </header>
   );
