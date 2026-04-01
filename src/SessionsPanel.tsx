@@ -22,7 +22,7 @@ export default function SessionsPanel({ client, currentSessionId, onLoad, onClos
     setLoading(true);
     try {
       const r = await client.listSessions(after ? { after } : undefined);
-      setSessions((prev) => after ? [...prev, ...r.sessions] : r.sessions);
+      setSessions((prev) => (after ? [...prev, ...r.sessions] : r.sessions));
       setNext(r.next);
     } catch (e) {
       setError(String(e));
@@ -60,38 +60,69 @@ export default function SessionsPanel({ client, currentSessionId, onLoad, onClos
     <div className="sessions-panel">
       <div className="sessions-header">
         <span>Sessions</span>
-        <button className="sessions-close" onClick={onClose}>✕</button>
+        <button className="sessions-close" onClick={onClose}>
+          ✕
+        </button>
       </div>
       {error && <p className="error">{error}</p>}
       {loading && <p className="sessions-hint">Loading…</p>}
       <div className="sessions-body">
         <ul className="sessions-list">
           {sessions.map((id) => (
-            <li key={id}
-              className={"session-item" + (id === currentSessionId ? " active" : "") + (id === detail?.sessionId ? " selected" : "")}
-              onClick={() => showDetail(id)}>
+            <li
+              key={id}
+              className={
+                "session-item" +
+                (id === currentSessionId ? " active" : "") +
+                (id === detail?.sessionId ? " selected" : "")
+              }
+              onClick={() => showDetail(id)}
+            >
               <span className="session-id">{id}</span>
             </li>
           ))}
           {!loading && sessions.length === 0 && <li className="sessions-hint">No sessions.</li>}
           {next && !loading && (
-            <li className="sessions-hint" style={{ cursor: "pointer", textDecoration: "underline" }} onClick={() => fetchSessions(next)}>
+            <li
+              className="sessions-hint"
+              style={{ cursor: "pointer", textDecoration: "underline" }}
+              onClick={() => fetchSessions(next)}
+            >
               Load more…
             </li>
           )}
         </ul>
         {detail && (
           <div className="session-detail">
-            <div className="session-detail-row"><span>Agent</span><span>{detail.agent.name}</span></div>
+            <div className="session-detail-row">
+              <span>Agent</span>
+              <span>{detail.agent.name}</span>
+            </div>
             {detail.agent.options && Object.keys(detail.agent.options).length > 0 && (
-              <div className="session-detail-row"><span>Options</span><span>{JSON.stringify(detail.agent.options)}</span></div>
+              <div className="session-detail-row">
+                <span>Options</span>
+                <span>{JSON.stringify(detail.agent.options)}</span>
+              </div>
             )}
-            {detail.history?.full && <div className="session-detail-row"><span>Messages</span><span>{detail.history.full.length}</span></div>}
+            {detail.history?.full && (
+              <div className="session-detail-row">
+                <span>Messages</span>
+                <span>{detail.history.full.length}</span>
+              </div>
+            )}
             <div style={{ display: "flex", gap: "0.5rem", marginTop: "auto" }}>
-              <button disabled={detail.sessionId === currentSessionId} onClick={() => { onLoad(detail.sessionId); onClose(); }}>
+              <button
+                disabled={detail.sessionId === currentSessionId}
+                onClick={() => {
+                  onLoad(detail.sessionId);
+                  onClose();
+                }}
+              >
                 {detail.sessionId === currentSessionId ? "Already active" : "Load session"}
               </button>
-              <button className="danger" onClick={() => deleteSession(detail.sessionId)}>Delete</button>
+              <button className="danger" onClick={() => deleteSession(detail.sessionId)}>
+                Delete
+              </button>
             </div>
           </div>
         )}

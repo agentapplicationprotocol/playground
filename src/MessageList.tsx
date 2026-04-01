@@ -11,7 +11,15 @@ interface Props {
   onAnswerPermission: (req: PermissionRequest, granted: boolean) => void;
 }
 
-export default function MessageList({ messages, permRequests, busy, input, onInputChange, onSend, onAnswerPermission }: Props) {
+export default function MessageList({
+  messages,
+  permRequests,
+  busy,
+  input,
+  onInputChange,
+  onSend,
+  onAnswerPermission,
+}: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -31,15 +39,30 @@ export default function MessageList({ messages, permRequests, busy, input, onInp
                 <pre className="tool-call-input">{JSON.stringify(tc.input, null, 2)}</pre>
                 {tc.result !== undefined && (
                   <details className="tool-call-result-wrap">
-                    <summary className={`tool-call-result${tc.result === "denied" ? " denied" : ""}`}>↳ result</summary>
+                    <summary
+                      className={`tool-call-result${tc.result === "denied" ? " denied" : ""}`}
+                    >
+                      ↳ result
+                    </summary>
                     <pre className="tool-call-input">{tc.result}</pre>
                   </details>
                 )}
               </div>
             ))}
-            {m.content && <span className="bubble">{m.content}{m.streaming && <span className="cursor">▋</span>}</span>}
-            {!m.content && m.streaming && <span className="bubble"><span className="cursor">▋</span></span>}
-            {m.images?.map((url, j) => <img key={j} src={url} className="message-image" alt="" />)}
+            {m.content && (
+              <span className="bubble">
+                {m.content}
+                {m.streaming && <span className="cursor">▋</span>}
+              </span>
+            )}
+            {!m.content && m.streaming && (
+              <span className="bubble">
+                <span className="cursor">▋</span>
+              </span>
+            )}
+            {m.images?.map((url, j) => (
+              <img key={j} src={url} className="message-image" alt="" />
+            ))}
           </div>
         ))}
         <div ref={bottomRef} />
@@ -50,11 +73,14 @@ export default function MessageList({ messages, permRequests, busy, input, onInp
           <p>The agent wants to run tool{permRequests.length > 1 ? "s" : ""}:</p>
           {permRequests.map((req, i) => (
             <div key={i} className="perm-item">
-              <strong>{req.toolName}</strong><span className="perm-type"> ({req.toolType} tool)</span>
+              <strong>{req.toolName}</strong>
+              <span className="perm-type"> ({req.toolType} tool)</span>
               <pre>{JSON.stringify(req.input, null, 2)}</pre>
               <div className="perm-actions">
                 <button onClick={() => onAnswerPermission(req, true)}>Allow</button>
-                <button className="disconnect" onClick={() => onAnswerPermission(req, false)}>Deny</button>
+                <button className="disconnect" onClick={() => onAnswerPermission(req, false)}>
+                  Deny
+                </button>
               </div>
             </div>
           ))}
@@ -65,12 +91,19 @@ export default function MessageList({ messages, permRequests, busy, input, onInp
         <textarea
           value={input}
           onChange={(e) => onInputChange(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              onSend();
+            }
+          }}
           placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
           rows={2}
           disabled={busy}
         />
-        <button onClick={onSend} disabled={busy || !input.trim()}>Send</button>
+        <button onClick={onSend} disabled={busy || !input.trim()}>
+          Send
+        </button>
       </div>
     </>
   );

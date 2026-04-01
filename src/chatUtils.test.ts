@@ -11,7 +11,13 @@ describe("extractContent", () => {
 
   it("concatenates multiple text blocks with newline", () => {
     const msgs: HistoryMessage[] = [
-      { role: "assistant", content: [{ type: "text", text: "a" }, { type: "text", text: "b" }] },
+      {
+        role: "assistant",
+        content: [
+          { type: "text", text: "a" },
+          { type: "text", text: "b" },
+        ],
+      },
     ];
     expect(extractContent(msgs).text).toBe("a\nb");
   });
@@ -44,14 +50,26 @@ describe("historyToChatMessages", () => {
 
   it("converts user message with block content (text only)", () => {
     const history: HistoryMessage[] = [
-      { role: "user", content: [{ type: "text", text: "hello" }, { type: "image", url: "x" }] },
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "hello" },
+          { type: "image", url: "x" },
+        ],
+      },
     ];
     expect(historyToChatMessages(history)[0].content).toBe("hello");
   });
 
   it("converts assistant message with text and thinking", () => {
     const history: HistoryMessage[] = [
-      { role: "assistant", content: [{ type: "text", text: "ans" }, { type: "thinking", thinking: "hmm" }] },
+      {
+        role: "assistant",
+        content: [
+          { type: "text", text: "ans" },
+          { type: "thinking", thinking: "hmm" },
+        ],
+      },
     ];
     const [msg] = historyToChatMessages(history);
     expect(msg.content).toBe("ans");
@@ -60,7 +78,10 @@ describe("historyToChatMessages", () => {
 
   it("extracts tool_use blocks into toolCalls", () => {
     const history: HistoryMessage[] = [
-      { role: "assistant", content: [{ type: "tool_use", toolCallId: "c1", name: "fn", input: { x: 1 } }] },
+      {
+        role: "assistant",
+        content: [{ type: "tool_use", toolCallId: "c1", name: "fn", input: { x: 1 } }],
+      },
     ];
     const [msg] = historyToChatMessages(history);
     expect(msg.toolCalls).toEqual([{ toolCallId: "c1", name: "fn", input: { x: 1 } }]);

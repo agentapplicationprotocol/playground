@@ -24,12 +24,18 @@ export interface PermissionRequest {
   resolve: (granted: boolean) => void;
 }
 
-export function extractContent(messages: HistoryMessage[]): { text: string; thinking: string; images: string[] } {
-  let text = "", thinking = "";
+export function extractContent(messages: HistoryMessage[]): {
+  text: string;
+  thinking: string;
+  images: string[];
+} {
+  let text = "",
+    thinking = "";
   const images: string[] = [];
   for (const m of messages) {
     if (!("content" in m)) continue;
-    const blocks = typeof m.content === "string" ? [{ type: "text" as const, text: m.content }] : m.content;
+    const blocks =
+      typeof m.content === "string" ? [{ type: "text" as const, text: m.content }] : m.content;
     for (const b of blocks) {
       if (b.type === "text") text += (text ? "\n" : "") + b.text;
       else if (b.type === "thinking") thinking += (thinking ? "\n" : "") + b.thinking;
@@ -52,15 +58,33 @@ export function historyToChatMessages(history: HistoryMessage[]): ChatMessage[] 
   const chatMessages: ChatMessage[] = [];
   for (const m of history) {
     if (m.role === "user") {
-      const content = typeof m.content === "string"
-        ? m.content
-        : m.content.filter((b) => b.type === "text").map((b) => (b as { type: "text"; text: string }).text).join("\n");
+      const content =
+        typeof m.content === "string"
+          ? m.content
+          : m.content
+              .filter((b) => b.type === "text")
+              .map((b) => (b as { type: "text"; text: string }).text)
+              .join("\n");
       chatMessages.push({ role: "user", content });
     } else if (m.role === "assistant") {
       const { text, thinking, images } = extractContent([m]);
       const toolCalls: ToolCallRecord[] = (Array.isArray(m.content) ? m.content : [])
-        .filter((b): b is { type: "tool_use"; toolCallId: string; name: string; input: Record<string, unknown> } => (b as { type: string }).type === "tool_use")
-        .map(({ toolCallId, name, input }) => ({ toolCallId, name, input, ...(toolResults.has(toolCallId) ? { result: toolResults.get(toolCallId) } : {}) }));
+        .filter(
+          (
+            b,
+          ): b is {
+            type: "tool_use";
+            toolCallId: string;
+            name: string;
+            input: Record<string, unknown>;
+          } => (b as { type: string }).type === "tool_use",
+        )
+        .map(({ toolCallId, name, input }) => ({
+          toolCallId,
+          name,
+          input,
+          ...(toolResults.has(toolCallId) ? { result: toolResults.get(toolCallId) } : {}),
+        }));
       chatMessages.push({
         role: "assistant",
         content: text,
@@ -81,7 +105,9 @@ export function getOptionsToSend(
   if (isNewSession) {
     return Object.keys(options).length ? options : undefined;
   }
-  const changed = Object.fromEntries(Object.entries(options).filter(([k, v]) => lastSent?.[k] !== v));
+  const changed = Object.fromEntries(
+    Object.entries(options).filter(([k, v]) => lastSent?.[k] !== v),
+  );
   return Object.keys(changed).length ? changed : undefined;
 }
 

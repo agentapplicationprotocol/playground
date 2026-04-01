@@ -9,22 +9,49 @@ interface Props {
   onConnect: () => void;
 }
 
-export default function ConnectScreen({ baseUrl, apiKey, connectError, onBaseUrlChange, onApiKeyChange, onConnect }: Props) {
+export default function ConnectScreen({
+  baseUrl,
+  apiKey,
+  connectError,
+  onBaseUrlChange,
+  onApiKeyChange,
+  onConnect,
+}: Props) {
   return (
     <div className="connect-screen">
       <Header />
       <div className="connect-body">
         <h1>Playground</h1>
         <div className="connect-form">
-          <label>Base URL
-            <input value={baseUrl} onChange={(e) => onBaseUrlChange(e.target.value)} placeholder="https://your-aap-server.com" />
+          <label>
+            Base URL
+            <input
+              value={baseUrl}
+              onChange={(e) => onBaseUrlChange(e.target.value)}
+              placeholder="https://your-aap-server.com"
+            />
           </label>
-          <label>API Key
-            <input type="password" value={apiKey} onChange={(e) => onApiKeyChange(e.target.value)} placeholder="sk-..." />
+          <label>
+            API Key
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => onApiKeyChange(e.target.value)}
+              placeholder="sk-..."
+            />
           </label>
           {connectError && <p className="error">{connectError}</p>}
-          <button onClick={onConnect} disabled={!baseUrl}>Connect</button>
-          <a className="example-agents-link" href="https://github.com/agentapplicationprotocol/typescript-sdk/tree/main/packages/server/src/examples" target="_blank" rel="noopener noreferrer">Example agents</a>
+          <button onClick={onConnect} disabled={!baseUrl}>
+            Connect
+          </button>
+          <a
+            className="example-agents-link"
+            href="https://github.com/agentapplicationprotocol/typescript-sdk/tree/main/packages/server/src/examples"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Example agents
+          </a>
         </div>
       </div>
     </div>

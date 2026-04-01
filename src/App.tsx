@@ -1,12 +1,31 @@
 import { useState, useRef } from "react";
 import { Client, Session } from "@agentapplicationprotocol/client";
-import type { AgentInfo, AgentOption, SSEEvent, HistoryMessage, UserMessage, ToolMessage, ToolPermissionMessage } from "@agentapplicationprotocol/core";
-import ToolManager, { type ClientTool, type ServerToolState, toServerToolRefs } from "./ToolManager";
+import type {
+  AgentInfo,
+  AgentOption,
+  SSEEvent,
+  HistoryMessage,
+  UserMessage,
+  ToolMessage,
+  ToolPermissionMessage,
+} from "@agentapplicationprotocol/core";
+import ToolManager, {
+  type ClientTool,
+  type ServerToolState,
+  toServerToolRefs,
+} from "./ToolManager";
 import SessionsPanel from "./SessionsPanel";
 import Header from "./Header";
 import ConnectScreen from "./ConnectScreen";
 import MessageList from "./MessageList";
-import { extractContent, historyToChatMessages, runTool, type ChatMessage, type ToolCallRecord, type PermissionRequest } from "./chatUtils";
+import {
+  extractContent,
+  historyToChatMessages,
+  runTool,
+  type ChatMessage,
+  type ToolCallRecord,
+  type PermissionRequest,
+} from "./chatUtils";
 import "./App.css";
 
 export default function App() {
@@ -38,7 +57,11 @@ export default function App() {
     setOptions(defaults);
   }
 
-  function askPermission(toolName: string, toolType: "client" | "server", input: Record<string, unknown>): Promise<boolean> {
+  function askPermission(
+    toolName: string,
+    toolType: "client" | "server",
+    input: Record<string, unknown>,
+  ): Promise<boolean> {
     return new Promise((resolve) => {
       setPermRequests((prev) => [...prev, { toolName, toolType, input, resolve }]);
     });
@@ -58,21 +81,45 @@ export default function App() {
   }
 
   function sseCallback(event: SSEEvent) {
-    if (event.event === "text_delta") updateLast((m) => ({ ...m, content: m.content + event.delta }));
+    if (event.event === "text_delta")
+      updateLast((m) => ({ ...m, content: m.content + event.delta }));
     else if (event.event === "text") updateLast((m) => ({ ...m, content: event.text }));
-    else if (event.event === "thinking_delta") updateLast((m) => ({ ...m, thinking: (m.thinking ?? "") + event.delta }));
+    else if (event.event === "thinking_delta")
+      updateLast((m) => ({ ...m, thinking: (m.thinking ?? "") + event.delta }));
     else if (event.event === "thinking") updateLast((m) => ({ ...m, thinking: event.thinking }));
     else if (event.event === "tool_call") {
       updateLast((m) => {
         const existing = m.toolCalls?.find((tc) => tc.toolCallId === event.toolCallId);
-        if (existing) return { ...m, toolCalls: (m.toolCalls ?? []).map((tc) => tc.toolCallId === event.toolCallId ? { ...tc, name: event.name, input: event.input } : tc) };
-        return { ...m, toolCalls: [...(m.toolCalls ?? []), { toolCallId: event.toolCallId, name: event.name, input: event.input }] };
+        if (existing)
+          return {
+            ...m,
+            toolCalls: (m.toolCalls ?? []).map((tc) =>
+              tc.toolCallId === event.toolCallId
+                ? { ...tc, name: event.name, input: event.input }
+                : tc,
+            ),
+          };
+        return {
+          ...m,
+          toolCalls: [
+            ...(m.toolCalls ?? []),
+            { toolCallId: event.toolCallId, name: event.name, input: event.input },
+          ],
+        };
       });
     } else if (event.event === "tool_result") {
       updateLast((m) => ({
         ...m,
         streaming: false,
-        toolCalls: (m.toolCalls ?? []).map((tc) => tc.toolCallId === event.toolCallId ? { ...tc, result: typeof event.content === "string" ? event.content : JSON.stringify(event.content) } : tc),
+        toolCalls: (m.toolCalls ?? []).map((tc) =>
+          tc.toolCallId === event.toolCallId
+            ? {
+                ...tc,
+                result:
+                  typeof event.content === "string" ? event.content : JSON.stringify(event.content),
+              }
+            : tc,
+        ),
       }));
       setMessages((prev) => [...prev, { role: "assistant", content: "", streaming: true }]);
     }
@@ -81,8 +128,21 @@ export default function App() {
   function applyNonStreamingMessages(messages: HistoryMessage[]) {
     const { text, thinking, images } = extractContent(messages);
     const toolCalls: ToolCallRecord[] = messages
-      .flatMap((m) => Array.isArray((m as { content?: unknown }).content) ? (m as { content: unknown[] }).content : [])
-      .filter((b): b is { type: "tool_use"; toolCallId: string; name: string; input: Record<string, unknown> } => (b as { type: string }).type === "tool_use")
+      .flatMap((m) =>
+        Array.isArray((m as { content?: unknown }).content)
+          ? (m as { content: unknown[] }).content
+          : [],
+      )
+      .filter(
+        (
+          b,
+        ): b is {
+          type: "tool_use";
+          toolCallId: string;
+          name: string;
+          input: Record<string, unknown>;
+        } => (b as { type: string }).type === "tool_use",
+      )
       .map(({ toolCallId, name, input }) => ({ toolCallId, name, input }));
     updateLast((m) => {
       const merged = [...(m.toolCalls ?? [])];
@@ -91,11 +151,23 @@ export default function App() {
         if (idx >= 0) merged[idx] = { ...merged[idx], ...tc };
         else merged.push(tc);
       }
-      return { ...m, content: text, ...(thinking ? { thinking } : {}), ...(images.length ? { images } : {}), ...(merged.length ? { toolCalls: merged } : {}) };
+      return {
+        ...m,
+        content: text,
+        ...(thinking ? { thinking } : {}),
+        ...(images.length ? { images } : {}),
+        ...(merged.length ? { toolCalls: merged } : {}),
+      };
     });
   }
 
-  async function processPending(session: Session, pending: { client: { toolCallId: string; name: string; input: Record<string, unknown> }[]; server: { toolCallId: string; name: string; input: Record<string, unknown> }[] }) {
+  async function processPending(
+    session: Session,
+    pending: {
+      client: { toolCallId: string; name: string; input: Record<string, unknown> }[];
+      server: { toolCallId: string; name: string; input: Record<string, unknown> }[];
+    },
+  ) {
     while (pending.client.length || pending.server.length) {
       const toolMessages: (UserMessage | ToolMessage | ToolPermissionMessage)[] = [];
       for (const block of [...pending.client, ...pending.server]) {
@@ -114,33 +186,55 @@ export default function App() {
         } else if (serverTool) {
           granted = await askPermission(block.name, "server", block.input);
           resultText = granted ? "granted" : "denied";
-          toolMessages.push({ role: "tool_permission", toolCallId: block.toolCallId, granted: granted! });
+          toolMessages.push({
+            role: "tool_permission",
+            toolCallId: block.toolCallId,
+            granted: granted!,
+          });
         } else {
           resultText = `Unknown tool: ${block.name}`;
           toolMessages.push({ role: "tool", toolCallId: block.toolCallId, content: resultText });
         }
         updateLast((m) => ({
           ...m,
-          toolCalls: (m.toolCalls ?? []).map((tc) => tc.toolCallId === block.toolCallId ? { ...tc, result: resultText! } : tc),
+          toolCalls: (m.toolCalls ?? []).map((tc) =>
+            tc.toolCallId === block.toolCallId ? { ...tc, result: resultText! } : tc,
+          ),
         }));
       }
 
       updateLast((m) => ({ ...m, streaming: false }));
       setMessages((prev) => [...prev, { role: "assistant", content: "", streaming: true }]);
       const req = { messages: toolMessages, stream: stream as "none" | "delta" | "message" };
-      pending = stream === "none"
-        ? await (async () => { const p = await session.send({ ...req, stream: "none" }); applyNonStreamingMessages(session.history.slice(-1)); return p; })()
-        : await session.send(req, sseCallback);
+      pending =
+        stream === "none"
+          ? await (async () => {
+              const p = await session.send({ ...req, stream: "none" });
+              applyNonStreamingMessages(session.history.slice(-1));
+              return p;
+            })()
+          : await session.send(req, sseCallback);
     }
   }
 
   async function loadSession(id: string) {
     if (!clientRef.current) return;
-    const agentInfo = agents.find((a) => a.name === selectedAgent) ?? { name: selectedAgent, version: "unknown" };
+    const agentInfo = agents.find((a) => a.name === selectedAgent) ?? {
+      name: selectedAgent,
+      version: "unknown",
+    };
     const { session, pending } = await Session.load(clientRef.current, id, agentInfo, "full");
 
-    if (session.agentConfig.options && Object.keys(session.agentConfig.options).length) setOptions(session.agentConfig.options);
-    if (session.agentConfig.tools?.length) setServerTools(session.agentConfig.tools.map((ref) => ({ name: ref.name, enabled: true, trust: ref.trust ?? false })));
+    if (session.agentConfig.options && Object.keys(session.agentConfig.options).length)
+      setOptions(session.agentConfig.options);
+    if (session.agentConfig.tools?.length)
+      setServerTools(
+        session.agentConfig.tools.map((ref) => ({
+          name: ref.name,
+          enabled: true,
+          trust: ref.trust ?? false,
+        })),
+      );
 
     setSessionId(id);
     setMessages(historyToChatMessages(session.history));
@@ -176,7 +270,9 @@ export default function App() {
       setAgents(meta.agents);
       const firstAgent = meta.agents[0];
       setSelectedAgent(firstAgent?.name ?? "");
-      setServerTools((firstAgent?.tools ?? []).map((t) => ({ name: t.name, enabled: true, trust: false })));
+      setServerTools(
+        (firstAgent?.tools ?? []).map((t) => ({ name: t.name, enabled: true, trust: false })),
+      );
       const caps = firstAgent?.capabilities?.stream;
       if (caps?.delta) setStream("delta");
       else if (caps?.message) setStream("message");
@@ -204,25 +300,37 @@ export default function App() {
     setInput("");
     setBusy(true);
 
-    setMessages((prev) => [...prev, { role: "user", content: userText }, { role: "assistant", content: "", streaming: true }]);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: userText },
+      { role: "assistant", content: "", streaming: true },
+    ]);
 
     try {
       const toolSpecs = tools.map((t) => t.spec);
       const serverToolRefs = toServerToolRefs(serverTools);
       const agentInfo = selectedAgentInfo ?? { name: selectedAgent, version: "unknown" };
 
-      let pending: { client: { toolCallId: string; name: string; input: Record<string, unknown> }[]; server: { toolCallId: string; name: string; input: Record<string, unknown> }[] };
+      let pending: {
+        client: { toolCallId: string; name: string; input: Record<string, unknown> }[];
+        server: { toolCallId: string; name: string; input: Record<string, unknown> }[];
+      };
 
       if (!sessionRef.current) {
         const req = {
-          agent: { name: selectedAgent, ...(serverToolRefs.length ? { tools: serverToolRefs } : {}), ...(Object.keys(options).length ? { options } : {}) },
+          agent: {
+            name: selectedAgent,
+            ...(serverToolRefs.length ? { tools: serverToolRefs } : {}),
+            ...(Object.keys(options).length ? { options } : {}),
+          },
           messages: [{ role: "user" as const, content: userText }],
           ...(toolSpecs.length ? { tools: toolSpecs } : {}),
           stream: stream as "none" | "delta" | "message",
         };
-        const { session, pending: p } = stream === "none"
-          ? await Session.create(clientRef.current, { ...req, stream: "none" }, agentInfo)
-          : await Session.create(clientRef.current, req, agentInfo, sseCallback);
+        const { session, pending: p } =
+          stream === "none"
+            ? await Session.create(clientRef.current, { ...req, stream: "none" }, agentInfo)
+            : await Session.create(clientRef.current, req, agentInfo, sseCallback);
         if (stream === "none") applyNonStreamingMessages(session.history.slice(-1));
         sessionRef.current = session;
         setSessionId(session.sessionId);
@@ -230,13 +338,21 @@ export default function App() {
       } else {
         const req = {
           messages: [{ role: "user" as const, content: userText }],
-          agent: { ...(serverToolRefs.length ? { tools: serverToolRefs } : {}), ...(Object.keys(options).length ? { options } : {}) },
+          agent: {
+            ...(serverToolRefs.length ? { tools: serverToolRefs } : {}),
+            ...(Object.keys(options).length ? { options } : {}),
+          },
           ...(toolSpecs.length ? { tools: toolSpecs } : {}),
           stream: stream as "none" | "delta" | "message",
         };
-        pending = stream === "none"
-          ? await (async () => { const p = await sessionRef.current!.send({ ...req, stream: "none" }); applyNonStreamingMessages(sessionRef.current!.history.slice(-1)); return p; })()
-          : await sessionRef.current.send(req, sseCallback);
+        pending =
+          stream === "none"
+            ? await (async () => {
+                const p = await sessionRef.current!.send({ ...req, stream: "none" });
+                applyNonStreamingMessages(sessionRef.current!.history.slice(-1));
+                return p;
+              })()
+            : await sessionRef.current.send(req, sseCallback);
       }
 
       await processPending(sessionRef.current, pending);
@@ -249,50 +365,95 @@ export default function App() {
   }
 
   if (!connected) {
-    return <ConnectScreen baseUrl={baseUrl} apiKey={apiKey} connectError={connectError}
-      onBaseUrlChange={setBaseUrl} onApiKeyChange={setApiKey} onConnect={connect} />;
+    return (
+      <ConnectScreen
+        baseUrl={baseUrl}
+        apiKey={apiKey}
+        connectError={connectError}
+        onBaseUrlChange={setBaseUrl}
+        onApiKeyChange={setApiKey}
+        onConnect={connect}
+      />
+    );
   }
 
   return (
     <div className="chat-screen">
       <Header>
-        <label className="stream-toggle">Stream:
-          <select value={stream} onChange={(e) => setStream(e.target.value as "none" | "delta" | "message")}>
-            <option value="none" disabled={streamCaps ? !streamCaps.none : false}>none</option>
-            <option value="delta" disabled={!streamCaps?.delta}>delta</option>
-            <option value="message" disabled={!streamCaps?.message}>message</option>
+        <label className="stream-toggle">
+          Stream:
+          <select
+            value={stream}
+            onChange={(e) => setStream(e.target.value as "none" | "delta" | "message")}
+          >
+            <option value="none" disabled={streamCaps ? !streamCaps.none : false}>
+              none
+            </option>
+            <option value="delta" disabled={!streamCaps?.delta}>
+              delta
+            </option>
+            <option value="message" disabled={!streamCaps?.message}>
+              message
+            </option>
           </select>
         </label>
-        <select value={selectedAgent} onChange={(e) => {
-          const name = e.target.value;
-          setSelectedAgent(name);
-          sessionRef.current = null;
-          setSessionId(undefined);
-          setMessages([]);
-          const agent = agents.find((a) => a.name === name);
-          setServerTools((agent?.tools ?? []).map((t) => ({ name: t.name, enabled: true, trust: false })));
-          const caps = agent?.capabilities?.stream;
-          if (caps?.delta) setStream("delta");
-          else if (caps?.message) setStream("message");
-          else if (caps?.none) setStream("none");
-          initOptions(agent?.options ?? []);
-        }}>
-          {agents.map((a) => <option key={a.name} value={a.name}>{a.title ?? a.name}</option>)}
+        <select
+          value={selectedAgent}
+          onChange={(e) => {
+            const name = e.target.value;
+            setSelectedAgent(name);
+            sessionRef.current = null;
+            setSessionId(undefined);
+            setMessages([]);
+            const agent = agents.find((a) => a.name === name);
+            setServerTools(
+              (agent?.tools ?? []).map((t) => ({ name: t.name, enabled: true, trust: false })),
+            );
+            const caps = agent?.capabilities?.stream;
+            if (caps?.delta) setStream("delta");
+            else if (caps?.message) setStream("message");
+            else if (caps?.none) setStream("none");
+            initOptions(agent?.options ?? []);
+          }}
+        >
+          {agents.map((a) => (
+            <option key={a.name} value={a.name}>
+              {a.title ?? a.name}
+            </option>
+          ))}
         </select>
-        <button className="disconnect" onClick={disconnect}>Disconnect</button>
+        <button className="disconnect" onClick={disconnect}>
+          Disconnect
+        </button>
         <button onClick={() => setShowSessions((v) => !v)}>Sessions</button>
-        <button onClick={() => { sessionRef.current = null; setSessionId(undefined); setMessages([]); }}>New Session</button>
+        <button
+          onClick={() => {
+            sessionRef.current = null;
+            setSessionId(undefined);
+            setMessages([]);
+          }}
+        >
+          New Session
+        </button>
       </Header>
 
       {showSessions && (
-        <SessionsPanel client={clientRef.current!} currentSessionId={sessionId}
-          onLoad={(id) => { setShowSessions(false); loadSession(id); }}
-          onClose={() => setShowSessions(false)} />
+        <SessionsPanel
+          client={clientRef.current!}
+          currentSessionId={sessionId}
+          onLoad={(id) => {
+            setShowSessions(false);
+            loadSession(id);
+          }}
+          onClose={() => setShowSessions(false)}
+        />
       )}
 
       <ToolManager
-        clientTools={tools} onClientToolsChange={setTools}
-        serverTools={serverTools} onServerToolsChange={setServerTools}
+        clientTools={tools}
+        onClientToolsChange={setTools}
+        serverTools={serverTools}
+        onServerToolsChange={setServerTools}
         clientToolsSupported={selectedAgentInfo?.capabilities?.application?.tools !== undefined}
       />
 
@@ -303,21 +464,42 @@ export default function App() {
             <label key={opt.name} className="option-field" title={opt.description}>
               <span>{opt.title ?? opt.name}</span>
               {opt.type === "select" ? (
-                <select value={options[opt.name] ?? opt.default} onChange={(e) => setOptions((prev) => ({ ...prev, [opt.name]: e.target.value }))}>
-                  {opt.options.map((o) => <option key={o} value={o}>{o}</option>)}
+                <select
+                  value={options[opt.name] ?? opt.default}
+                  onChange={(e) => setOptions((prev) => ({ ...prev, [opt.name]: e.target.value }))}
+                >
+                  {opt.options.map((o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
                 </select>
               ) : opt.type === "secret" ? (
-                <input type="password" value={options[opt.name] ?? opt.default} onChange={(e) => setOptions((prev) => ({ ...prev, [opt.name]: e.target.value }))} />
+                <input
+                  type="password"
+                  value={options[opt.name] ?? opt.default}
+                  onChange={(e) => setOptions((prev) => ({ ...prev, [opt.name]: e.target.value }))}
+                />
               ) : (
-                <input value={options[opt.name] ?? opt.default} onChange={(e) => setOptions((prev) => ({ ...prev, [opt.name]: e.target.value }))} />
+                <input
+                  value={options[opt.name] ?? opt.default}
+                  onChange={(e) => setOptions((prev) => ({ ...prev, [opt.name]: e.target.value }))}
+                />
               )}
             </label>
           ))}
         </div>
       )}
 
-      <MessageList messages={messages} permRequests={permRequests} busy={busy}
-        input={input} onInputChange={setInput} onSend={send} onAnswerPermission={answerPermission} />
+      <MessageList
+        messages={messages}
+        permRequests={permRequests}
+        busy={busy}
+        input={input}
+        onInputChange={setInput}
+        onSend={send}
+        onAnswerPermission={answerPermission}
+      />
     </div>
   );
 }
