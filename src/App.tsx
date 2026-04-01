@@ -22,6 +22,7 @@ import MessageList from "./MessageList";
 import {
   extractContent,
   historyToChatMessages,
+  pickHistoryMode,
   runTool,
   type ChatMessage,
   type ToolCallRecord,
@@ -245,11 +246,12 @@ export default function App() {
     if (!clientRef.current) return;
     const agentInfo = agents.find((a) => a.name === sessionResponse.agent.name);
     if (!agentInfo) throw new Error(`Agent not found: ${sessionResponse.agent.name}`);
+    const historyMode = pickHistoryMode(agentInfo.capabilities);
     const { session, pending } = await Session.load(
       clientRef.current,
       sessionResponse,
       agentInfo,
-      "full",
+      historyMode,
     );
 
     if (session.agentConfig.options && Object.keys(session.agentConfig.options).length)

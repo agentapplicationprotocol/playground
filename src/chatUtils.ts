@@ -119,3 +119,11 @@ export function runTool(tool: ClientTool, input: Record<string, unknown>): strin
     return `Error: ${e}`;
   }
 }
+
+export function pickHistoryMode(
+  capabilities: { history?: { full?: object; compacted?: object } } | undefined,
+): "full" | "compacted" | undefined {
+  if (capabilities?.history?.full) return "full";
+  if (capabilities?.history?.compacted) return "compacted";
+  return undefined;
+}

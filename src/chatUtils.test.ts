@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { extractContent, historyToChatMessages, getOptionsToSend, runTool } from "./chatUtils";
+import {
+  extractContent,
+  historyToChatMessages,
+  getOptionsToSend,
+  runTool,
+  pickHistoryMode,
+} from "./chatUtils";
 import type { HistoryMessage } from "@agentapplicationprotocol/core";
 import type { ClientTool } from "./ToolManager";
 
@@ -127,5 +133,18 @@ describe("runTool", () => {
 
   it("returns error string on exception", () => {
     expect(runTool(tool("throw new Error('boom')"), {})).toMatch(/Error.*boom/);
+  });
+});
+
+describe("pickHistoryMode", () => {
+  it("returns 'full' when full is available", () => {
+    expect(pickHistoryMode({ history: { full: {}, compacted: {} } })).toBe("full");
+  });
+  it("returns 'compacted' when only compacted is available", () => {
+    expect(pickHistoryMode({ history: { compacted: {} } })).toBe("compacted");
+  });
+  it("returns undefined when no history capability", () => {
+    expect(pickHistoryMode({ history: {} })).toBeUndefined();
+    expect(pickHistoryMode(undefined)).toBeUndefined();
   });
 });
