@@ -86,10 +86,12 @@ export default function SessionsPanel({ client, currentSessionId, onLoad, onClos
               <div className="session-detail-row"><span>Options</span><span>{JSON.stringify(detail.agent.options)}</span></div>
             )}
             {detail.history?.full && <div className="session-detail-row"><span>Messages</span><span>{detail.history.full.length}</span></div>}
-            <button onClick={() => { onLoad(detail.sessionId); onClose(); }}>
-              {detail.sessionId === currentSessionId ? "Already active" : "Load session"}
-            </button>
-            <button className="danger" onClick={() => deleteSession(detail.sessionId)}>Delete</button>
+            <div style={{ display: "flex", gap: "0.5rem", marginTop: "auto" }}>
+              <button disabled={detail.sessionId === currentSessionId} onClick={() => { onLoad(detail.sessionId); onClose(); }}>
+                {detail.sessionId === currentSessionId ? "Already active" : "Load session"}
+              </button>
+              <button className="danger" onClick={() => deleteSession(detail.sessionId)}>Delete</button>
+            </div>
           </div>
         )}
       </div>

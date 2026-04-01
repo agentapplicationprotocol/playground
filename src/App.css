@@ -211,7 +211,7 @@ button.tool-add:hover { border-color: #666; color: #ccc; }
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
-  padding: 0.75rem 0;
+  padding: 0.75rem 1.5rem;
   border-bottom: 1px solid #222;
 }
 
@@ -239,7 +239,7 @@ button.tool-add:hover { border-color: #666; color: #ccc; }
 .sessions-panel {
   border: 1px solid #222;
   border-radius: 6px;
-  margin: 0.5rem 0;
+  margin: 0.5rem 1.5rem;
   font-size: 0.85rem;
   overflow: hidden;
 }
@@ -308,7 +308,7 @@ button.sessions-close:hover { color: #ccc; background: none; }
 .session-detail-row > span:first-child { color: #666; min-width: 60px; }
 .session-detail-row > span:last-child { color: #ccc; word-break: break-all; }
 
-.session-detail button { margin-top: auto; align-self: flex-start; }
+.session-detail button { align-self: flex-start; }
 
 /* ── Options bar ── */
 .options-bar {
