@@ -103,7 +103,11 @@ export default function App() {
           ...m,
           toolCalls: [
             ...(m.toolCalls ?? []),
-            { toolCallId: event.toolCallId, name: event.name, input: event.input },
+            {
+              toolCallId: event.toolCallId,
+              name: event.name,
+              input: event.input,
+            },
           ],
         };
       });
@@ -164,8 +168,16 @@ export default function App() {
   async function processPending(
     session: Session,
     pending: {
-      client: { toolCallId: string; name: string; input: Record<string, unknown> }[];
-      server: { toolCallId: string; name: string; input: Record<string, unknown> }[];
+      client: {
+        toolCallId: string;
+        name: string;
+        input: Record<string, unknown>;
+      }[];
+      server: {
+        toolCallId: string;
+        name: string;
+        input: Record<string, unknown>;
+      }[];
     },
   ) {
     while (pending.client.length || pending.server.length) {
@@ -182,7 +194,11 @@ export default function App() {
             granted = await askPermission(block.name, "client", block.input);
             resultText = granted ? runTool(clientTool, block.input) : "denied";
           }
-          toolMessages.push({ role: "tool", toolCallId: block.toolCallId, content: resultText! });
+          toolMessages.push({
+            role: "tool",
+            toolCallId: block.toolCallId,
+            content: resultText!,
+          });
         } else if (serverTool) {
           granted = await askPermission(block.name, "server", block.input);
           resultText = granted ? "granted" : "denied";
@@ -193,7 +209,11 @@ export default function App() {
           });
         } else {
           resultText = `Unknown tool: ${block.name}`;
-          toolMessages.push({ role: "tool", toolCallId: block.toolCallId, content: resultText });
+          toolMessages.push({
+            role: "tool",
+            toolCallId: block.toolCallId,
+            content: resultText,
+          });
         }
         updateLast((m) => ({
           ...m,
@@ -205,7 +225,10 @@ export default function App() {
 
       updateLast((m) => ({ ...m, streaming: false }));
       setMessages((prev) => [...prev, { role: "assistant", content: "", streaming: true }]);
-      const req = { messages: toolMessages, stream: stream as "none" | "delta" | "message" };
+      const req = {
+        messages: toolMessages,
+        stream: stream as "none" | "delta" | "message",
+      };
       pending =
         stream === "none"
           ? await (async () => {
@@ -271,7 +294,11 @@ export default function App() {
       const firstAgent = meta.agents[0];
       setSelectedAgent(firstAgent?.name ?? "");
       setServerTools(
-        (firstAgent?.tools ?? []).map((t) => ({ name: t.name, enabled: true, trust: false })),
+        (firstAgent?.tools ?? []).map((t) => ({
+          name: t.name,
+          enabled: true,
+          trust: false,
+        })),
       );
       const caps = firstAgent?.capabilities?.stream;
       if (caps?.delta) setStream("delta");
@@ -309,11 +336,22 @@ export default function App() {
     try {
       const toolSpecs = tools.map((t) => t.spec);
       const serverToolRefs = toServerToolRefs(serverTools);
-      const agentInfo = selectedAgentInfo ?? { name: selectedAgent, version: "unknown" };
+      const agentInfo = selectedAgentInfo ?? {
+        name: selectedAgent,
+        version: "unknown",
+      };
 
       let pending: {
-        client: { toolCallId: string; name: string; input: Record<string, unknown> }[];
-        server: { toolCallId: string; name: string; input: Record<string, unknown> }[];
+        client: {
+          toolCallId: string;
+          name: string;
+          input: Record<string, unknown>;
+        }[];
+        server: {
+          toolCallId: string;
+          name: string;
+          input: Record<string, unknown>;
+        }[];
       };
 
       if (!sessionRef.current) {
@@ -348,7 +386,10 @@ export default function App() {
         pending =
           stream === "none"
             ? await (async () => {
-                const p = await sessionRef.current!.send({ ...req, stream: "none" });
+                const p = await sessionRef.current!.send({
+                  ...req,
+                  stream: "none",
+                });
                 applyNonStreamingMessages(sessionRef.current!.history.slice(-1));
                 return p;
               })()
@@ -407,7 +448,11 @@ export default function App() {
             setMessages([]);
             const agent = agents.find((a) => a.name === name);
             setServerTools(
-              (agent?.tools ?? []).map((t) => ({ name: t.name, enabled: true, trust: false })),
+              (agent?.tools ?? []).map((t) => ({
+                name: t.name,
+                enabled: true,
+                trust: false,
+              })),
             );
             const caps = agent?.capabilities?.stream;
             if (caps?.delta) setStream("delta");
@@ -459,14 +504,19 @@ export default function App() {
 
       {selectedAgentInfo && (selectedAgentInfo.options ?? []).length > 0 && (
         <div className="options-bar">
-          <span className="tool-label">Server options:</span>
+          <span className="tool-label">Agent options:</span>
           {(selectedAgentInfo.options ?? []).map((opt) => (
             <label key={opt.name} className="option-field" title={opt.description}>
               <span>{opt.title ?? opt.name}</span>
               {opt.type === "select" ? (
                 <select
                   value={options[opt.name] ?? opt.default}
-                  onChange={(e) => setOptions((prev) => ({ ...prev, [opt.name]: e.target.value }))}
+                  onChange={(e) =>
+                    setOptions((prev) => ({
+                      ...prev,
+                      [opt.name]: e.target.value,
+                    }))
+                  }
                 >
                   {opt.options.map((o) => (
                     <option key={o} value={o}>
@@ -478,12 +528,22 @@ export default function App() {
                 <input
                   type="password"
                   value={options[opt.name] ?? opt.default}
-                  onChange={(e) => setOptions((prev) => ({ ...prev, [opt.name]: e.target.value }))}
+                  onChange={(e) =>
+                    setOptions((prev) => ({
+                      ...prev,
+                      [opt.name]: e.target.value,
+                    }))
+                  }
                 />
               ) : (
                 <input
                   value={options[opt.name] ?? opt.default}
-                  onChange={(e) => setOptions((prev) => ({ ...prev, [opt.name]: e.target.value }))}
+                  onChange={(e) =>
+                    setOptions((prev) => ({
+                      ...prev,
+                      [opt.name]: e.target.value,
+                    }))
+                  }
                 />
               )}
             </label>
