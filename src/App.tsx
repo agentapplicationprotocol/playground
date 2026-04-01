@@ -345,6 +345,7 @@ export default function App() {
         </select>
         <button className="disconnect" onClick={disconnect}>Disconnect</button>
         <button onClick={() => setShowSessions((v) => !v)}>Sessions</button>
+        <button onClick={() => { setSessionId(undefined); setMessages([]); }}>New Session</button>
       </Header>
 
       {showSessions && (
