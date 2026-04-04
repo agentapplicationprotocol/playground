@@ -25,7 +25,7 @@ const EMPTY: ClientTool = {
   spec: {
     name: "calculator",
     description: "Perform basic arithmetic operations",
-    inputSchema: {
+    parameters: {
       type: "object",
       properties: {
         expression: {
@@ -78,10 +78,10 @@ export default function ToolManager({
     if (!editing) return;
     try {
       const schema =
-        typeof editing.spec.inputSchema === "string"
-          ? JSON.parse(editing.spec.inputSchema as unknown as string)
-          : editing.spec.inputSchema;
-      const tool: ClientTool = { ...editing, spec: { ...editing.spec, inputSchema: schema } };
+        typeof editing.spec.parameters === "string"
+          ? JSON.parse(editing.spec.parameters as unknown as string)
+          : editing.spec.parameters;
+      const tool: ClientTool = { ...editing, spec: { ...editing.spec, parameters: schema } };
       if (editIndex !== null) {
         const next = [...clientTools];
         next[editIndex] = tool;
@@ -160,16 +160,16 @@ export default function ToolManager({
             <textarea
               rows={4}
               value={
-                typeof editing.spec.inputSchema === "string"
-                  ? (editing.spec.inputSchema as unknown as string)
-                  : JSON.stringify(editing.spec.inputSchema, null, 2)
+                typeof editing.spec.parameters === "string"
+                  ? (editing.spec.parameters as unknown as string)
+                  : JSON.stringify(editing.spec.parameters, null, 2)
               }
               onChange={(e) =>
                 setEditing((t) => ({
                   ...t!,
                   spec: {
                     ...t!.spec,
-                    inputSchema: e.target.value as unknown as ToolSpec["inputSchema"],
+                    parameters: e.target.value as unknown as ToolSpec["parameters"],
                   },
                 }))
               }

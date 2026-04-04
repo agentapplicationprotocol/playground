@@ -369,16 +369,22 @@ export default function App() {
           },
           messages: [{ role: "user" as const, content: userText }],
           ...(toolSpecs.length ? { tools: toolSpecs } : {}),
-          stream: stream as "none" | "delta" | "message",
         };
-        const { session, pending: p } =
-          stream === "none"
-            ? await Session.create(clientRef.current, { ...req, stream: "none" }, agentInfo)
-            : await Session.create(clientRef.current, req, agentInfo, sseCallback);
-        if (stream === "none") applyNonStreamingMessages(session.history.slice(-1));
+        const session = await Session.create(clientRef.current, req, agentInfo);
         sessionRef.current = session;
         setSessionId(session.sessionId);
-        pending = p;
+        const turnReq = {
+          messages: [{ role: "user" as const, content: userText }],
+          stream: stream as "none" | "delta" | "message",
+        };
+        pending =
+          stream === "none"
+            ? await (async () => {
+                const p = await session.send({ ...turnReq, stream: "none" });
+                applyNonStreamingMessages(session.history.slice(-1));
+                return p;
+              })()
+            : await session.send(turnReq, sseCallback);
       } else {
         const req = {
           messages: [{ role: "user" as const, content: userText }],

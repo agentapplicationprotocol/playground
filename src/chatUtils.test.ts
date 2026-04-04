@@ -122,7 +122,7 @@ describe("getOptionsToSend", () => {
 
 describe("runTool", () => {
   const tool = (code: string): ClientTool => ({
-    spec: { name: "t", description: "", inputSchema: {} },
+    spec: { name: "t", description: "", parameters: {} },
     code,
     trust: false,
   });

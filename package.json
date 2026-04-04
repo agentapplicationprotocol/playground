@@ -12,8 +12,8 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@agentapplicationprotocol/client": "^0.6.0",
-    "@agentapplicationprotocol/core": "^0.6.0",
+    "@agentapplicationprotocol/client": "^0.7.0",
+    "@agentapplicationprotocol/core": "^0.7.0",
     "eventsource-parser": "^3.0.6",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
