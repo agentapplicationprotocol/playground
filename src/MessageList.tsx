@@ -33,6 +33,17 @@ export default function MessageList({
         {messages.map((m, i) => (
           <div key={i} className={`message ${m.role}`}>
             {m.thinking && <div className="thinking">{m.thinking}</div>}
+            {m.content && (
+              <span className="bubble">
+                {m.content}
+                {m.streaming && <span className="cursor">▋</span>}
+              </span>
+            )}
+            {!m.content && m.streaming && (
+              <span className="bubble">
+                <span className="cursor">▋</span>
+              </span>
+            )}
             {m.toolCalls?.map((tc) => (
               <div key={tc.toolCallId} className="tool-call">
                 <span className="tool-call-name">⚙ {tc.name}</span>
@@ -49,17 +60,6 @@ export default function MessageList({
                 )}
               </div>
             ))}
-            {m.content && (
-              <span className="bubble">
-                {m.content}
-                {m.streaming && <span className="cursor">▋</span>}
-              </span>
-            )}
-            {!m.content && m.streaming && (
-              <span className="bubble">
-                <span className="cursor">▋</span>
-              </span>
-            )}
             {m.images?.map((url, j) => (
               <img key={j} src={url} className="message-image" alt="" />
             ))}
