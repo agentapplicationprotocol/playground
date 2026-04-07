@@ -1,4 +1,6 @@
 import { useRef, useEffect } from "react";
+import { Streamdown } from "streamdown";
+import "streamdown/styles.css";
 import type { ChatMessage, PermissionRequest } from "./chatUtils";
 
 interface Props {
@@ -35,7 +37,11 @@ export default function MessageList({
             {m.thinking && <div className="thinking">{m.thinking}</div>}
             {m.content && (
               <span className="bubble">
-                {m.content}
+                {m.role === "assistant" ? (
+                  <Streamdown controls={{ table: false }}>{m.content}</Streamdown>
+                ) : (
+                  m.content
+                )}
                 {m.streaming && <span className="cursor">▋</span>}
               </span>
             )}

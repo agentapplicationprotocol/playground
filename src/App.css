@@ -221,12 +221,16 @@ button.danger:not(:disabled):hover {
 
 .bubble {
   max-width: 75%;
-  padding: 0.6rem 0.9rem;
+  padding: 0.6rem 1rem;
   border-radius: 12px;
-  white-space: pre-wrap;
   line-height: 1.5;
   font-size: 0.95rem;
 }
+
+.bubble :first-child { margin-top: 0; }
+.bubble :last-child { margin-bottom: 0; }
+.bubble ul, .bubble ol { padding-left: 1.5rem; }
+.bubble table, .bubble th, .bubble td { border: 1px solid #fff; border-collapse: collapse; padding: 0.3rem 0.6rem; }
 
 .message.user .bubble {
   background: #2563eb;
