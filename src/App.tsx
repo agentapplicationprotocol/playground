@@ -367,7 +367,6 @@ export default function App() {
             ...(serverToolRefs.length ? { tools: serverToolRefs } : {}),
             ...(Object.keys(options).length ? { options } : {}),
           },
-          messages: [{ role: "user" as const, content: userText }],
           ...(toolSpecs.length ? { tools: toolSpecs } : {}),
         };
         const session = await Session.create(clientRef.current, req, agentInfo);
