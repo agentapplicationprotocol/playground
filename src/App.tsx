@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Client, Session } from "@agentapplicationprotocol/client";
 import type {
   AgentInfo,
@@ -31,8 +31,9 @@ import {
 import "./App.css";
 
 export default function App() {
-  const [baseUrl, setBaseUrl] = useState("");
-  const [apiKey, setApiKey] = useState("");
+  const params = new URLSearchParams(window.location.search);
+  const [baseUrl, setBaseUrl] = useState(params.get("baseUrl") ?? "");
+  const [apiKey, setApiKey] = useState(params.get("apiKey") ?? "");
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [selectedAgent, setSelectedAgent] = useState("");
   const [connected, setConnected] = useState(false);
@@ -53,6 +54,10 @@ export default function App() {
   const [options, setOptions] = useState<Record<string, string>>({});
   const clientRef = useRef<Client | null>(null);
   const sessionRef = useRef<Session | null>(null);
+
+  useEffect(() => {
+    if (params.toString()) history.replaceState(null, "", location.pathname);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function initOptions(agentOptions: AgentOption[]) {
     const defaults = Object.fromEntries(agentOptions.map((o) => [o.name, o.default]));
