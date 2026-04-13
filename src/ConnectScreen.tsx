@@ -46,11 +46,11 @@ export default function ConnectScreen({
           </button>
           <a
             className="example-agents-link"
-            href="https://github.com/agentapplicationprotocol/typescript-sdk/tree/main/packages/server/src/examples"
+            href="https://agentapplicationprotocol.com/agents"
             target="_blank"
             rel="noopener noreferrer"
           >
-            Example agents
+            Available agents
           </a>
         </div>
       </div>
