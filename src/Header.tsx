@@ -10,20 +10,20 @@ export default function Header({ children }: { children?: ReactNode }) {
       <div className="header-right">
         {children}
         <a
+          href="https://agentapplicationprotocol.com/"
+          target="_blank"
+          rel="noreferrer"
+          className="header-link"
+        >
+          Protocol
+        </a>
+        <a
           href="https://github.com/agentapplicationprotocol/playground"
           target="_blank"
           rel="noreferrer"
           className="header-link"
         >
           GitHub
-        </a>
-        <a
-          href="https://agentapplicationprotocol.com/"
-          target="_blank"
-          rel="noreferrer"
-          className="header-link"
-        >
-          AAP
         </a>
       </div>
     </header>
