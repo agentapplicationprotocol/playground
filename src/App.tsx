@@ -38,6 +38,7 @@ export default function App() {
   const [selectedAgent, setSelectedAgent] = useState("");
   const [connected, setConnected] = useState(false);
   const [connectError, setConnectError] = useState("");
+  const [connecting, setConnecting] = useState(false);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -297,6 +298,7 @@ export default function App() {
 
   async function connect() {
     setConnectError("");
+    setConnecting(true);
     try {
       const client = new Client({ baseUrl, apiKey });
       const meta = await client.getMeta();
@@ -319,6 +321,8 @@ export default function App() {
       setConnected(true);
     } catch (e) {
       setConnectError(String(e));
+    } finally {
+      setConnecting(false);
     }
   }
 
@@ -427,6 +431,7 @@ export default function App() {
         baseUrl={baseUrl}
         apiKey={apiKey}
         connectError={connectError}
+        connecting={connecting}
         onBaseUrlChange={setBaseUrl}
         onApiKeyChange={setApiKey}
         onConnect={connect}

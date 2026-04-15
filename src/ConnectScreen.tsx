@@ -4,6 +4,7 @@ interface Props {
   baseUrl: string;
   apiKey: string;
   connectError: string;
+  connecting?: boolean;
   onBaseUrlChange: (v: string) => void;
   onApiKeyChange: (v: string) => void;
   onConnect: () => void;
@@ -13,6 +14,7 @@ export default function ConnectScreen({
   baseUrl,
   apiKey,
   connectError,
+  connecting,
   onBaseUrlChange,
   onApiKeyChange,
   onConnect,
@@ -41,8 +43,8 @@ export default function ConnectScreen({
             />
           </label>
           {connectError && <p className="error">{connectError}</p>}
-          <button onClick={onConnect} disabled={!baseUrl}>
-            Connect
+          <button onClick={onConnect} disabled={!baseUrl || connecting}>
+            {connecting ? "Connecting…" : "Connect"}
           </button>
           <a
             className="example-agents-link"
