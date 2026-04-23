@@ -1,18 +1,18 @@
 import { useState, useEffect, useRef } from "react";
 import { type Client } from "@agentapplicationprotocol/client";
-import { type SessionResponse } from "@agentapplicationprotocol/core";
+import { type SessionInfo } from "@agentapplicationprotocol/core";
 
 interface Props {
   client: Client;
   currentSessionId?: string;
-  onLoad: (session: SessionResponse) => void;
+  onLoad: (session: SessionInfo) => void;
   onClose: () => void;
 }
 
 export default function SessionsPanel({ client, currentSessionId, onLoad, onClose }: Props) {
-  const [sessions, setSessions] = useState<SessionResponse[]>([]);
+  const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [next, setNext] = useState<string | undefined>();
-  const [detail, setDetail] = useState<SessionResponse | null>(null);
+  const [detail, setDetail] = useState<SessionInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -21,7 +21,7 @@ export default function SessionsPanel({ client, currentSessionId, onLoad, onClos
   async function fetchSessions(after?: string) {
     setLoading(true);
     try {
-      const r = await client.listSessions(after ? { after } : undefined);
+      const r = await client.getSessions(after ? { after } : undefined);
       setSessions((prev) => (after ? [...prev, ...r.sessions] : r.sessions));
       setNext(r.next);
     } catch (e) {
@@ -37,7 +37,7 @@ export default function SessionsPanel({ client, currentSessionId, onLoad, onClos
     fetchSessions();
   }, [client]);
 
-  async function showDetail(s: SessionResponse) {
+  async function showDetail(s: SessionInfo) {
     setDetail(s);
   }
 

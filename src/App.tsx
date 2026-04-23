@@ -8,7 +8,7 @@ import type {
   UserMessage,
   ToolMessage,
   ToolPermissionMessage,
-  SessionResponse,
+  SessionInfo,
 } from "@agentapplicationprotocol/core";
 import ToolManager, {
   type ClientTool,
@@ -240,15 +240,15 @@ export default function App() {
       pending =
         stream === "none"
           ? await (async () => {
-              const p = await session.send({ ...req, stream: "none" });
+              const { pending: p } = await session.send({ ...req, stream: "none" });
               applyNonStreamingMessages(session.history.slice(-1));
               return p;
             })()
-          : await session.send(req, sseCallback);
+          : (await session.send(req, sseCallback)).pending;
     }
   }
 
-  async function loadSession(sessionResponse: SessionResponse) {
+  async function loadSession(sessionResponse: SessionInfo) {
     if (!clientRef.current) return;
     const agentInfo = agents.find((a) => a.name === sessionResponse.agent.name);
     if (!agentInfo) throw new Error(`Agent not found: ${sessionResponse.agent.name}`);
@@ -388,11 +388,11 @@ export default function App() {
         pending =
           stream === "none"
             ? await (async () => {
-                const p = await session.send({ ...turnReq, stream: "none" });
+                const { pending: p } = await session.send({ ...turnReq, stream: "none" });
                 applyNonStreamingMessages(session.history.slice(-1));
                 return p;
               })()
-            : await session.send(turnReq, sseCallback);
+            : (await session.send(turnReq, sseCallback)).pending;
       } else {
         const req = {
           messages: [{ role: "user" as const, content: userText }],
@@ -406,14 +406,14 @@ export default function App() {
         pending =
           stream === "none"
             ? await (async () => {
-                const p = await sessionRef.current!.send({
+                const { pending: p } = await sessionRef.current!.send({
                   ...req,
                   stream: "none",
                 });
                 applyNonStreamingMessages(sessionRef.current!.history.slice(-1));
                 return p;
               })()
-            : await sessionRef.current.send(req, sseCallback);
+            : (await sessionRef.current.send(req, sseCallback)).pending;
       }
 
       await processPending(sessionRef.current, pending);
